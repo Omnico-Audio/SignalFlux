@@ -7,6 +7,19 @@ add_library(signalflux_core STATIC
     domain/Project.cpp
     domain/Validation.h
     domain/Validation.cpp
+    domain/Examples.h
+    domain/Examples.cpp
+    engine/LegTiming.h
+    engine/RuntimeGraph.h
+    engine/RuntimeGraph.cpp
+    engine/EngineEvent.h
+    engine/EngineEvent.cpp
+    engine/ActiveNoteRegistry.h
+    engine/ActiveNoteRegistry.cpp
+    engine/Sequencer.h
+    engine/Sequencer.cpp
+    engine/EventLog.h
+    engine/EventLog.cpp
 )
 add_library(SignalFlux::core ALIAS signalflux_core)
 target_include_directories(signalflux_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

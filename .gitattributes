@@ -1,0 +1,2 @@
+# Golden logs are compared byte for byte (D25): never convert line endings.
+tests/fixtures/golden/** -text

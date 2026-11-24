@@ -1,0 +1,78 @@
+0 Start
+0 Spawn t=1 st=1
+0 NoteOn ch=1 n=48 v=100 st=1 t=1
+0 Depart t=1 st=1 fp=20 due=1920
+480 NoteOff ch=1 n=48
+1920 Arrive t=1 st=2
+1920 NoteOn ch=1 n=60 v=100 st=2 t=1
+1920 Depart t=1 st=2 fp=21 due=3840
+2400 NoteOff ch=1 n=60
+3840 Arrive t=1 st=1
+3840 NoteOn ch=1 n=48 v=100 st=1 t=1
+3840 Depart t=1 st=1 fp=30 due=5760
+4320 NoteOff ch=1 n=48
+5760 Arrive t=1 st=3
+5760 NoteOn ch=1 n=64 v=100 st=3 t=1
+5760 Depart t=1 st=3 fp=31 due=7680
+6240 NoteOff ch=1 n=64
+7680 Arrive t=1 st=1
+7680 NoteOn ch=1 n=48 v=100 st=1 t=1
+7680 Depart t=1 st=1 fp=40 due=8640
+8160 NoteOff ch=1 n=48
+8640 Arrive t=1 st=4
+8640 NoteOn ch=1 n=67 v=100 st=4 t=1
+8640 Depart t=1 st=4 fp=41 due=9600
+9120 NoteOff ch=1 n=67
+9600 Arrive t=1 st=1
+9600 NoteOn ch=1 n=48 v=100 st=1 t=1
+9600 Depart t=1 st=1 fp=20 due=11520
+10080 NoteOff ch=1 n=48
+11520 Arrive t=1 st=2
+11520 NoteOn ch=1 n=60 v=100 st=2 t=1
+11520 Depart t=1 st=2 fp=21 due=13440
+12000 NoteOff ch=1 n=60
+13440 Arrive t=1 st=1
+13440 NoteOn ch=1 n=48 v=100 st=1 t=1
+13440 Depart t=1 st=1 fp=30 due=15360
+13920 NoteOff ch=1 n=48
+15360 Arrive t=1 st=3
+15360 NoteOn ch=1 n=64 v=100 st=3 t=1
+15360 Depart t=1 st=3 fp=31 due=17280
+15840 NoteOff ch=1 n=64
+17280 Arrive t=1 st=1
+17280 NoteOn ch=1 n=48 v=100 st=1 t=1
+17280 Depart t=1 st=1 fp=40 due=18240
+17760 NoteOff ch=1 n=48
+18240 Arrive t=1 st=4
+18240 NoteOn ch=1 n=67 v=100 st=4 t=1
+18240 Depart t=1 st=4 fp=41 due=19200
+18720 NoteOff ch=1 n=67
+19200 Arrive t=1 st=1
+19200 NoteOn ch=1 n=48 v=100 st=1 t=1
+19200 Depart t=1 st=1 fp=20 due=21120
+19680 NoteOff ch=1 n=48
+21120 Arrive t=1 st=2
+21120 NoteOn ch=1 n=60 v=100 st=2 t=1
+21120 Depart t=1 st=2 fp=21 due=23040
+21600 NoteOff ch=1 n=60
+23040 Arrive t=1 st=1
+23040 NoteOn ch=1 n=48 v=100 st=1 t=1
+23040 Depart t=1 st=1 fp=30 due=24960
+23520 NoteOff ch=1 n=48
+24960 Arrive t=1 st=3
+24960 NoteOn ch=1 n=64 v=100 st=3 t=1
+24960 Depart t=1 st=3 fp=31 due=26880
+25440 NoteOff ch=1 n=64
+26880 Arrive t=1 st=1
+26880 NoteOn ch=1 n=48 v=100 st=1 t=1
+26880 Depart t=1 st=1 fp=40 due=27840
+27360 NoteOff ch=1 n=48
+27840 Arrive t=1 st=4
+27840 NoteOn ch=1 n=67 v=100 st=4 t=1
+27840 Depart t=1 st=4 fp=41 due=28800
+28320 NoteOff ch=1 n=67
+28800 Arrive t=1 st=1
+28800 NoteOn ch=1 n=48 v=100 st=1 t=1
+28800 Depart t=1 st=1 fp=20 due=30720
+29280 NoteOff ch=1 n=48
+30720 Stop
