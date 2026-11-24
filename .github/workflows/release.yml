@@ -1,0 +1,109 @@
+name: Release
+
+# Builds installable beta packages for macOS and Windows (SF-010) and attaches
+# them to a GitHub Release. Run it by pushing a tag such as v0.1.0-beta.1, or
+# manually from the Actions tab (packages are then kept as workflow artifacts).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (Apple Silicon)
+            os: macos-15
+            preset: macos
+            build: macos-release
+          - name: Windows x64
+            os: windows-latest
+            preset: windows-ninja
+            build: windows-ninja
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSVC developer environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.build }} --parallel
+
+      - name: Test
+        run: ctest --preset ${{ matrix.build }}
+
+      - name: Name the package
+        id: name
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME}"
+          [ "$GITHUB_REF_TYPE" = "tag" ] || version="dev-${GITHUB_SHA::7}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Package (macOS .dmg)
+        if: runner.os == 'macOS'
+        run: |
+          stage="$RUNNER_TEMP/SignalFlux"
+          mkdir -p "$stage/Examples"
+          cp -R "build/macos/src/app/SignalFlux_artefacts/Release/SignalFlux.app" "$stage/"
+          cp examples/*.sflux "$stage/Examples/"
+          cp LICENSE "$stage/LICENSE.txt"
+          cp packaging/README-beta.txt "$stage/READ ME FIRST.txt"
+          ln -s /Applications "$stage/Applications"
+          # Ad-hoc signature so Apple Silicon will launch it; not notarized (see READ ME FIRST).
+          codesign --force --deep --sign - "$stage/SignalFlux.app"
+          hdiutil create -volname "SignalFlux" -srcfolder "$stage" -ov -format UDZO \
+            "SignalFlux-${{ steps.name.outputs.version }}-macOS-arm64.dmg"
+
+      - name: Package (Windows .zip)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP "SignalFlux"
+          New-Item -ItemType Directory -Force -Path "$stage/Examples" | Out-Null
+          Copy-Item "build/windows-ninja/src/app/SignalFlux_artefacts/Release/SignalFlux.exe" $stage
+          Copy-Item examples/*.sflux "$stage/Examples"
+          Copy-Item LICENSE "$stage/LICENSE.txt"
+          Copy-Item packaging/README-beta.txt "$stage/READ ME FIRST.txt"
+          Compress-Archive -Path "$stage/*" -DestinationPath "SignalFlux-${{ steps.name.outputs.version }}-Windows-x64.zip"
+
+      - name: Keep the package
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ runner.os }}
+          path: |
+            *.dmg
+            *.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: package
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" packages/* \
+            --repo "$GITHUB_REPOSITORY" --prerelease --title "SignalFlux $GITHUB_REF_NAME" \
+            --notes "Beta build. Source code for this release is this repository at tag $GITHUB_REF_NAME (GNU AGPLv3). See READ ME FIRST in each package."

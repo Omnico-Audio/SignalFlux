@@ -23,6 +23,10 @@ SignalFlux is a grid-based, non-linear MIDI sequencer. Stations are placed on a 
 
 SignalFlux is not a DAW and is not a plugin. It is a standalone MIDI instrument/controller application.
 
+## Using the beta
+
+Download the macOS `.dmg` or Windows `.zip` from the repository's Releases page (built by `.github/workflows/release.yml`), then read `packaging/README-beta.txt` (shipped as "READ ME FIRST"). A short usage guide for the editor is in `docs/reports/SF-009_COMPLETION_REPORT.md`.
+
 ## Building
 
 Requirements: CMake ≥ 3.24, a C++20 compiler, Git. Dependencies (JUCE 9.0.6, Catch2 3.16.1, Ableton Link 4.1.1) are fetched automatically at pinned commits; see `cmake/SignalFluxDependencies.cmake`.
