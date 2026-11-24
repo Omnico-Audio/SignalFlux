@@ -23,6 +23,7 @@ enum class EngineEventType : std::uint8_t {
     TravelerSpawn,     ///< A Starter created on Play.
     TravelerArrive,
     TravelerDepart,    ///< Leg started; `flowpoint` and `deadline` are set.
+    TravelerRepeat,    ///< A Repeat trigger while dwelling at a Station (D8).
     TravelerEnd,       ///< Chain ended: no outgoing route (D24) or route deleted (D5).
     TravelerDropped,   ///< Not spawned: Traveler cap reached (D23).
     NoteOn,
