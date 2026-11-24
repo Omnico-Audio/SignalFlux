@@ -27,7 +27,7 @@ void LogicEngine::compile(const Plot& plot, const RuntimeGraph& graph) {
     std::sort(previous.begin(), previous.end());
 
     std::vector<std::pair<SwitchId, std::uint8_t>> switches;
-    for (const auto& sw : plot.switches) switches.emplace_back(sw.id, sw.on ? 1 : 0);
+    for (const auto& sw : plot.switches) switches.emplace_back(sw.id, static_cast<std::uint8_t>(sw.on ? 1 : 0));
     std::sort(switches.begin(), switches.end());
     switches_ = std::move(switches);
 
