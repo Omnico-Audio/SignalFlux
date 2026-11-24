@@ -14,21 +14,28 @@ jobs:
       matrix:
         include:
           - name: macOS (Apple Silicon)
-            os: macos-14
+            os: macos-15
             preset: macos
             build: macos-release
           - name: Windows x64
             os: windows-latest
-            preset: windows
-            build: windows-release
+            # Ninja + MSVC works with whichever Visual Studio version the runner image ships.
+            preset: windows-ninja
+            build: windows-ninja
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up MSVC developer environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
       - name: Record toolchain
         shell: bash
         run: |
           cmake --version | head -1
-          if [ "$RUNNER_OS" = "macOS" ]; then xcodebuild -version; else cmd //c "where cl" || true; fi
+          if [ "$RUNNER_OS" = "macOS" ]; then xcodebuild -version; else cl 2>&1 | head -1; ninja --version; fi
 
       - name: Cache dependencies
         uses: actions/cache@v4

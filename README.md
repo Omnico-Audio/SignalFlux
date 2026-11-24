@@ -31,6 +31,8 @@ Requirements: CMake ≥ 3.24, a C++20 compiler, Git. Dependencies (JUCE 9.0.6, C
 |---|---|---|---|
 | macOS (Xcode) | `cmake --preset macos` | `cmake --build --preset macos-release` | `ctest --preset macos-release` |
 | Windows (VS 2022) | `cmake --preset windows` | `cmake --build --preset windows-release` | `ctest --preset windows-release` |
+| Windows (VS 2026, CMake ≥ 4.2) | `cmake --preset windows-vs2026` | `cmake --build --preset windows-vs2026-release` | `ctest --preset windows-vs2026-release` |
+| Windows (Ninja + MSVC, from a VS developer prompt; used by CI) | `cmake --preset windows-ninja` | `cmake --build --preset windows-ninja` | `ctest --preset windows-ninja` |
 | Engine only, any OS (Ninja, no JUCE) | `cmake --preset engine` | `cmake --build --preset engine` | `ctest --preset engine` |
 
 The app bundle / executable lands in `build/<preset>/src/app/SignalFlux_artefacts/Release/`.
