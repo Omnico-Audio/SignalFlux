@@ -8,12 +8,22 @@
 # | JUCE         | 9.0.6        | 654bdbc7a9db0dae90849b44abe91f339e9f0768 | AGPLv3 / commercial  |
 # | Catch2       | v3.16.1      | 08092139210881f01a34e60c5f2fd6afa0ea4024 | BSL-1.0              |
 # | Ableton Link | Link-4.1.1   | 5ba907ae027a8c2ec8824463e37296dcefc5e9be | GPLv2+ / proprietary |
+# | nlohmann/json| v3.12.0      | 55f93686c01528224f448c19128836e7df245f72 | MIT                  |
 
 include(FetchContent)
 
 set(SIGNALFLUX_JUCE_COMMIT   654bdbc7a9db0dae90849b44abe91f339e9f0768)
 set(SIGNALFLUX_CATCH2_COMMIT 08092139210881f01a34e60c5f2fd6afa0ea4024)
 set(SIGNALFLUX_LINK_COMMIT   5ba907ae027a8c2ec8824463e37296dcefc5e9be)
+set(SIGNALFLUX_JSON_COMMIT   55f93686c01528224f448c19128836e7df245f72)
+
+# Project files (SF-010): header-only JSON, used by the persistence library only.
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+set(JSON_Install OFF CACHE INTERNAL "")
+FetchContent_Declare(nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        ${SIGNALFLUX_JSON_COMMIT})
+FetchContent_MakeAvailable(nlohmann_json)
 
 if(SIGNALFLUX_BUILD_TESTS)
     FetchContent_Declare(Catch2

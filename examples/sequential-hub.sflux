@@ -1,0 +1,327 @@
+{
+  "format": "signalflux-project",
+  "metadata": {
+    "author": "",
+    "name": "Sequential Hub",
+    "notes": ""
+  },
+  "midi": {
+    "clockWhileStopped": false,
+    "inputs": [],
+    "mappings": [],
+    "outputs": [],
+    "sendClock": true,
+    "songPositionBeforeStart": true,
+    "virtualOutputPort": true
+  },
+  "plots": [
+    {
+      "flowpoints": [
+        {
+          "elbow": "horizontalFirst",
+          "from": 1,
+          "id": 20,
+          "rate": {
+            "den": 1,
+            "num": 1
+          },
+          "to": 2,
+          "waypoints": [],
+          "weight": 1
+        },
+        {
+          "elbow": "horizontalFirst",
+          "from": 2,
+          "id": 21,
+          "rate": {
+            "den": 1,
+            "num": 1
+          },
+          "to": 1,
+          "waypoints": [],
+          "weight": 1
+        },
+        {
+          "elbow": "horizontalFirst",
+          "from": 1,
+          "id": 30,
+          "rate": {
+            "den": 1,
+            "num": 1
+          },
+          "to": 3,
+          "waypoints": [],
+          "weight": 1
+        },
+        {
+          "elbow": "horizontalFirst",
+          "from": 3,
+          "id": 31,
+          "rate": {
+            "den": 1,
+            "num": 1
+          },
+          "to": 1,
+          "waypoints": [],
+          "weight": 1
+        },
+        {
+          "elbow": "horizontalFirst",
+          "from": 1,
+          "id": 40,
+          "rate": {
+            "den": 1,
+            "num": 1
+          },
+          "to": 4,
+          "waypoints": [],
+          "weight": 1
+        },
+        {
+          "elbow": "horizontalFirst",
+          "from": 4,
+          "id": 41,
+          "rate": {
+            "den": 1,
+            "num": 1
+          },
+          "to": 1,
+          "waypoints": [],
+          "weight": 1
+        }
+      ],
+      "gates": [],
+      "height": 64,
+      "id": 1,
+      "name": "Plot 1",
+      "stations": [
+        {
+          "additionalRepeats": 0,
+          "branchMode": "sequential",
+          "channel": 1,
+          "colour": 0,
+          "controlChange": {
+            "controller": 1,
+            "ramp": false,
+            "target": 0
+          },
+          "eventType": "note",
+          "humanize": {
+            "maxDelay": 0,
+            "velocityRange": 0
+          },
+          "id": 1,
+          "isStart": true,
+          "manuallyMuted": false,
+          "name": "S1",
+          "note": {
+            "absoluteNote": 48,
+            "chordOffsets": [],
+            "duration": 480,
+            "forceScale": false,
+            "mode": "absolute",
+            "pass": false,
+            "random": {
+              "anchor": 60,
+              "boundSteps": 7,
+              "mode": "anchor",
+              "rangeSteps": 2
+            },
+            "relativePassThrough": false,
+            "relativeSteps": 0,
+            "velocity": 100
+          },
+          "outgoingOrder": [
+            20,
+            30,
+            40
+          ],
+          "pitchBend": {
+            "ramp": false,
+            "target": 0
+          },
+          "position": {
+            "x": 4,
+            "y": 4
+          },
+          "probability": 100,
+          "repeatInterval": null,
+          "terminatorLimit": null
+        },
+        {
+          "additionalRepeats": 0,
+          "branchMode": "sequential",
+          "channel": 1,
+          "colour": 1,
+          "controlChange": {
+            "controller": 1,
+            "ramp": false,
+            "target": 0
+          },
+          "eventType": "note",
+          "humanize": {
+            "maxDelay": 0,
+            "velocityRange": 0
+          },
+          "id": 2,
+          "isStart": false,
+          "manuallyMuted": false,
+          "name": "S2",
+          "note": {
+            "absoluteNote": 60,
+            "chordOffsets": [],
+            "duration": 480,
+            "forceScale": false,
+            "mode": "absolute",
+            "pass": false,
+            "random": {
+              "anchor": 60,
+              "boundSteps": 7,
+              "mode": "anchor",
+              "rangeSteps": 2
+            },
+            "relativePassThrough": false,
+            "relativeSteps": 0,
+            "velocity": 100
+          },
+          "outgoingOrder": [
+            21
+          ],
+          "pitchBend": {
+            "ramp": false,
+            "target": 0
+          },
+          "position": {
+            "x": 4,
+            "y": 2
+          },
+          "probability": 100,
+          "repeatInterval": null,
+          "terminatorLimit": null
+        },
+        {
+          "additionalRepeats": 0,
+          "branchMode": "sequential",
+          "channel": 1,
+          "colour": 2,
+          "controlChange": {
+            "controller": 1,
+            "ramp": false,
+            "target": 0
+          },
+          "eventType": "note",
+          "humanize": {
+            "maxDelay": 0,
+            "velocityRange": 0
+          },
+          "id": 3,
+          "isStart": false,
+          "manuallyMuted": false,
+          "name": "S3",
+          "note": {
+            "absoluteNote": 64,
+            "chordOffsets": [],
+            "duration": 480,
+            "forceScale": false,
+            "mode": "absolute",
+            "pass": false,
+            "random": {
+              "anchor": 60,
+              "boundSteps": 7,
+              "mode": "anchor",
+              "rangeSteps": 2
+            },
+            "relativePassThrough": false,
+            "relativeSteps": 0,
+            "velocity": 100
+          },
+          "outgoingOrder": [
+            31
+          ],
+          "pitchBend": {
+            "ramp": false,
+            "target": 0
+          },
+          "position": {
+            "x": 6,
+            "y": 4
+          },
+          "probability": 100,
+          "repeatInterval": null,
+          "terminatorLimit": null
+        },
+        {
+          "additionalRepeats": 0,
+          "branchMode": "sequential",
+          "channel": 1,
+          "colour": 3,
+          "controlChange": {
+            "controller": 1,
+            "ramp": false,
+            "target": 0
+          },
+          "eventType": "note",
+          "humanize": {
+            "maxDelay": 0,
+            "velocityRange": 0
+          },
+          "id": 4,
+          "isStart": false,
+          "manuallyMuted": false,
+          "name": "S4",
+          "note": {
+            "absoluteNote": 67,
+            "chordOffsets": [],
+            "duration": 480,
+            "forceScale": false,
+            "mode": "absolute",
+            "pass": false,
+            "random": {
+              "anchor": 60,
+              "boundSteps": 7,
+              "mode": "anchor",
+              "rangeSteps": 2
+            },
+            "relativePassThrough": false,
+            "relativeSteps": 0,
+            "velocity": 100
+          },
+          "outgoingOrder": [
+            41
+          ],
+          "pitchBend": {
+            "ramp": false,
+            "target": 0
+          },
+          "position": {
+            "x": 4,
+            "y": 5
+          },
+          "probability": 100,
+          "repeatInterval": null,
+          "terminatorLimit": null
+        }
+      ],
+      "switches": [],
+      "width": 64
+    }
+  ],
+  "scenes": [],
+  "schemaVersion": 1,
+  "settings": {
+    "activeNoteCap": 256,
+    "captureMinutes": 10,
+    "gridSpacingTicks": 960,
+    "linkEnabled": false,
+    "randomSeed": "1",
+    "root": 0,
+    "scaleMask": 2741,
+    "sceneQuantize": "nextBeat",
+    "seedMode": "newEachPlay",
+    "starredSeeds": [],
+    "swingGrid": "sixteenths",
+    "swingPercent": 50,
+    "tempoMilliBpm": 120000,
+    "travelerCap": 8
+  }
+}
