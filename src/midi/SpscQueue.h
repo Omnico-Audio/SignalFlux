@@ -15,6 +15,11 @@
 
 namespace signalflux::midi {
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4324) // padding from alignas is intentional: keeps head and tail on separate cache lines
+#endif
+
 template <typename T, std::size_t Capacity>
 class SpscQueue {
     static_assert(Capacity >= 2 && (Capacity & (Capacity - 1)) == 0, "Capacity must be a power of two");
@@ -52,5 +57,9 @@ private:
     alignas(64) std::atomic<std::size_t> head_{0};
     alignas(64) std::atomic<std::size_t> tail_{0};
 };
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 } // namespace signalflux::midi
