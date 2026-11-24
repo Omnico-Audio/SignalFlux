@@ -1,0 +1,322 @@
+0 Start
+0 Spawn t=1 st=1
+0 NoteOn ch=10 n=36 v=100 st=1 t=1
+0 Depart t=1 st=1 fp=1 due=960
+0 Spawn t=2 st=3
+0 NoteOn ch=1 n=72 v=100 st=3 t=2
+0 Depart t=2 st=3 fp=3 due=640
+240 NoteOff ch=1 n=72
+480 NoteOff ch=10 n=36
+640 Arrive t=2 st=4
+640 NoteOn ch=1 n=79 v=100 st=4 t=2
+640 Depart t=2 st=4 fp=4 due=1280
+880 NoteOff ch=1 n=79
+960 Arrive t=1 st=2
+960 NoteOn ch=10 n=38 v=100 st=2 t=1
+960 Depart t=1 st=2 fp=2 due=1920
+1280 Arrive t=2 st=3
+1280 NoteOn ch=1 n=72 v=100 st=3 t=2
+1280 Depart t=2 st=3 fp=3 due=1920
+1440 NoteOff ch=10 n=38
+1520 NoteOff ch=1 n=72
+1920 Arrive t=1 st=1
+1920 NoteOn ch=10 n=36 v=100 st=1 t=1
+1920 Depart t=1 st=1 fp=1 due=2880
+1920 Arrive t=2 st=4
+1920 NoteOn ch=1 n=79 v=100 st=4 t=2
+1920 Depart t=2 st=4 fp=4 due=2560
+2160 NoteOff ch=1 n=79
+2400 NoteOff ch=10 n=36
+2560 Arrive t=2 st=3
+2560 NoteOn ch=1 n=72 v=100 st=3 t=2
+2560 Depart t=2 st=3 fp=3 due=3200
+2800 NoteOff ch=1 n=72
+2880 Arrive t=1 st=2
+2880 NoteOn ch=10 n=38 v=100 st=2 t=1
+2880 Depart t=1 st=2 fp=2 due=3840
+3200 Arrive t=2 st=4
+3200 NoteOn ch=1 n=79 v=100 st=4 t=2
+3200 Depart t=2 st=4 fp=4 due=3840
+3360 NoteOff ch=10 n=38
+3440 NoteOff ch=1 n=79
+3840 Arrive t=1 st=1
+3840 NoteOn ch=10 n=36 v=100 st=1 t=1
+3840 Depart t=1 st=1 fp=1 due=4800
+3840 Arrive t=2 st=3
+3840 NoteOn ch=1 n=72 v=100 st=3 t=2
+3840 Depart t=2 st=3 fp=3 due=4480
+4080 NoteOff ch=1 n=72
+4320 NoteOff ch=10 n=36
+4480 Arrive t=2 st=4
+4480 NoteOn ch=1 n=79 v=100 st=4 t=2
+4480 Depart t=2 st=4 fp=4 due=5120
+4720 NoteOff ch=1 n=79
+4800 Arrive t=1 st=2
+4800 NoteOn ch=10 n=38 v=100 st=2 t=1
+4800 Depart t=1 st=2 fp=2 due=5760
+5120 Arrive t=2 st=3
+5120 NoteOn ch=1 n=72 v=100 st=3 t=2
+5120 Depart t=2 st=3 fp=3 due=5760
+5280 NoteOff ch=10 n=38
+5360 NoteOff ch=1 n=72
+5760 Arrive t=1 st=1
+5760 NoteOn ch=10 n=36 v=100 st=1 t=1
+5760 Depart t=1 st=1 fp=1 due=6720
+5760 Arrive t=2 st=4
+5760 NoteOn ch=1 n=79 v=100 st=4 t=2
+5760 Depart t=2 st=4 fp=4 due=6400
+6000 NoteOff ch=1 n=79
+6240 NoteOff ch=10 n=36
+6400 Arrive t=2 st=3
+6400 NoteOn ch=1 n=72 v=100 st=3 t=2
+6400 Depart t=2 st=3 fp=3 due=7040
+6640 NoteOff ch=1 n=72
+6720 Arrive t=1 st=2
+6720 NoteOn ch=10 n=38 v=100 st=2 t=1
+6720 Depart t=1 st=2 fp=2 due=7680
+7040 Arrive t=2 st=4
+7040 NoteOn ch=1 n=79 v=100 st=4 t=2
+7040 Depart t=2 st=4 fp=4 due=7680
+7200 NoteOff ch=10 n=38
+7280 NoteOff ch=1 n=79
+7680 Arrive t=1 st=1
+7680 NoteOn ch=10 n=36 v=100 st=1 t=1
+7680 Depart t=1 st=1 fp=1 due=8640
+7680 Arrive t=2 st=3
+7680 NoteOn ch=1 n=72 v=100 st=3 t=2
+7680 Depart t=2 st=3 fp=3 due=8320
+7920 NoteOff ch=1 n=72
+8160 NoteOff ch=10 n=36
+8320 Arrive t=2 st=4
+8320 NoteOn ch=1 n=79 v=100 st=4 t=2
+8320 Depart t=2 st=4 fp=4 due=8960
+8560 NoteOff ch=1 n=79
+8640 Arrive t=1 st=2
+8640 NoteOn ch=10 n=38 v=100 st=2 t=1
+8640 Depart t=1 st=2 fp=2 due=9600
+8960 Arrive t=2 st=3
+8960 NoteOn ch=1 n=72 v=100 st=3 t=2
+8960 Depart t=2 st=3 fp=3 due=9600
+9120 NoteOff ch=10 n=38
+9200 NoteOff ch=1 n=72
+9600 Arrive t=1 st=1
+9600 NoteOn ch=10 n=36 v=100 st=1 t=1
+9600 Depart t=1 st=1 fp=1 due=10560
+9600 Arrive t=2 st=4
+9600 NoteOn ch=1 n=79 v=100 st=4 t=2
+9600 Depart t=2 st=4 fp=4 due=10240
+9840 NoteOff ch=1 n=79
+10080 NoteOff ch=10 n=36
+10240 Arrive t=2 st=3
+10240 NoteOn ch=1 n=72 v=100 st=3 t=2
+10240 Depart t=2 st=3 fp=3 due=10880
+10480 NoteOff ch=1 n=72
+10560 Arrive t=1 st=2
+10560 NoteOn ch=10 n=38 v=100 st=2 t=1
+10560 Depart t=1 st=2 fp=2 due=11520
+10880 Arrive t=2 st=4
+10880 NoteOn ch=1 n=79 v=100 st=4 t=2
+10880 Depart t=2 st=4 fp=4 due=11520
+11040 NoteOff ch=10 n=38
+11120 NoteOff ch=1 n=79
+11520 Arrive t=1 st=1
+11520 NoteOn ch=10 n=36 v=100 st=1 t=1
+11520 Depart t=1 st=1 fp=1 due=12480
+11520 Arrive t=2 st=3
+11520 NoteOn ch=1 n=72 v=100 st=3 t=2
+11520 Depart t=2 st=3 fp=3 due=12160
+11760 NoteOff ch=1 n=72
+12000 NoteOff ch=10 n=36
+12160 Arrive t=2 st=4
+12160 NoteOn ch=1 n=79 v=100 st=4 t=2
+12160 Depart t=2 st=4 fp=4 due=12800
+12400 NoteOff ch=1 n=79
+12480 Arrive t=1 st=2
+12480 NoteOn ch=10 n=38 v=100 st=2 t=1
+12480 Depart t=1 st=2 fp=2 due=13440
+12800 Arrive t=2 st=3
+12800 NoteOn ch=1 n=72 v=100 st=3 t=2
+12800 Depart t=2 st=3 fp=3 due=13440
+12960 NoteOff ch=10 n=38
+13040 NoteOff ch=1 n=72
+13440 Arrive t=1 st=1
+13440 NoteOn ch=10 n=36 v=100 st=1 t=1
+13440 Depart t=1 st=1 fp=1 due=14400
+13440 Arrive t=2 st=4
+13440 NoteOn ch=1 n=79 v=100 st=4 t=2
+13440 Depart t=2 st=4 fp=4 due=14080
+13680 NoteOff ch=1 n=79
+13920 NoteOff ch=10 n=36
+14080 Arrive t=2 st=3
+14080 NoteOn ch=1 n=72 v=100 st=3 t=2
+14080 Depart t=2 st=3 fp=3 due=14720
+14320 NoteOff ch=1 n=72
+14400 Arrive t=1 st=2
+14400 NoteOn ch=10 n=38 v=100 st=2 t=1
+14400 Depart t=1 st=2 fp=2 due=15360
+14720 Arrive t=2 st=4
+14720 NoteOn ch=1 n=79 v=100 st=4 t=2
+14720 Depart t=2 st=4 fp=4 due=15360
+14880 NoteOff ch=10 n=38
+14960 NoteOff ch=1 n=79
+15360 Arrive t=1 st=1
+15360 NoteOn ch=10 n=36 v=100 st=1 t=1
+15360 Depart t=1 st=1 fp=1 due=16320
+15360 Arrive t=2 st=3
+15360 NoteOn ch=1 n=72 v=100 st=3 t=2
+15360 Depart t=2 st=3 fp=3 due=16000
+15600 NoteOff ch=1 n=72
+15840 NoteOff ch=10 n=36
+16000 Arrive t=2 st=4
+16000 NoteOn ch=1 n=79 v=100 st=4 t=2
+16000 Depart t=2 st=4 fp=4 due=16640
+16240 NoteOff ch=1 n=79
+16320 Arrive t=1 st=2
+16320 NoteOn ch=10 n=38 v=100 st=2 t=1
+16320 Depart t=1 st=2 fp=2 due=17280
+16640 Arrive t=2 st=3
+16640 NoteOn ch=1 n=72 v=100 st=3 t=2
+16640 Depart t=2 st=3 fp=3 due=17280
+16800 NoteOff ch=10 n=38
+16880 NoteOff ch=1 n=72
+17280 Arrive t=1 st=1
+17280 NoteOn ch=10 n=36 v=100 st=1 t=1
+17280 Depart t=1 st=1 fp=1 due=18240
+17280 Arrive t=2 st=4
+17280 NoteOn ch=1 n=79 v=100 st=4 t=2
+17280 Depart t=2 st=4 fp=4 due=17920
+17520 NoteOff ch=1 n=79
+17760 NoteOff ch=10 n=36
+17920 Arrive t=2 st=3
+17920 NoteOn ch=1 n=72 v=100 st=3 t=2
+17920 Depart t=2 st=3 fp=3 due=18560
+18160 NoteOff ch=1 n=72
+18240 Arrive t=1 st=2
+18240 NoteOn ch=10 n=38 v=100 st=2 t=1
+18240 Depart t=1 st=2 fp=2 due=19200
+18560 Arrive t=2 st=4
+18560 NoteOn ch=1 n=79 v=100 st=4 t=2
+18560 Depart t=2 st=4 fp=4 due=19200
+18720 NoteOff ch=10 n=38
+18800 NoteOff ch=1 n=79
+19200 Arrive t=1 st=1
+19200 NoteOn ch=10 n=36 v=100 st=1 t=1
+19200 Depart t=1 st=1 fp=1 due=20160
+19200 Arrive t=2 st=3
+19200 NoteOn ch=1 n=72 v=100 st=3 t=2
+19200 Depart t=2 st=3 fp=3 due=19840
+19440 NoteOff ch=1 n=72
+19680 NoteOff ch=10 n=36
+19840 Arrive t=2 st=4
+19840 NoteOn ch=1 n=79 v=100 st=4 t=2
+19840 Depart t=2 st=4 fp=4 due=20480
+20080 NoteOff ch=1 n=79
+20160 Arrive t=1 st=2
+20160 NoteOn ch=10 n=38 v=100 st=2 t=1
+20160 Depart t=1 st=2 fp=2 due=21120
+20480 Arrive t=2 st=3
+20480 NoteOn ch=1 n=72 v=100 st=3 t=2
+20480 Depart t=2 st=3 fp=3 due=21120
+20640 NoteOff ch=10 n=38
+20720 NoteOff ch=1 n=72
+21120 Arrive t=1 st=1
+21120 NoteOn ch=10 n=36 v=100 st=1 t=1
+21120 Depart t=1 st=1 fp=1 due=22080
+21120 Arrive t=2 st=4
+21120 NoteOn ch=1 n=79 v=100 st=4 t=2
+21120 Depart t=2 st=4 fp=4 due=21760
+21360 NoteOff ch=1 n=79
+21600 NoteOff ch=10 n=36
+21760 Arrive t=2 st=3
+21760 NoteOn ch=1 n=72 v=100 st=3 t=2
+21760 Depart t=2 st=3 fp=3 due=22400
+22000 NoteOff ch=1 n=72
+22080 Arrive t=1 st=2
+22080 NoteOn ch=10 n=38 v=100 st=2 t=1
+22080 Depart t=1 st=2 fp=2 due=23040
+22400 Arrive t=2 st=4
+22400 NoteOn ch=1 n=79 v=100 st=4 t=2
+22400 Depart t=2 st=4 fp=4 due=23040
+22560 NoteOff ch=10 n=38
+22640 NoteOff ch=1 n=79
+23040 Arrive t=1 st=1
+23040 NoteOn ch=10 n=36 v=100 st=1 t=1
+23040 Depart t=1 st=1 fp=1 due=24000
+23040 Arrive t=2 st=3
+23040 NoteOn ch=1 n=72 v=100 st=3 t=2
+23040 Depart t=2 st=3 fp=3 due=23680
+23280 NoteOff ch=1 n=72
+23520 NoteOff ch=10 n=36
+23680 Arrive t=2 st=4
+23680 NoteOn ch=1 n=79 v=100 st=4 t=2
+23680 Depart t=2 st=4 fp=4 due=24320
+23920 NoteOff ch=1 n=79
+24000 Arrive t=1 st=2
+24000 NoteOn ch=10 n=38 v=100 st=2 t=1
+24000 Depart t=1 st=2 fp=2 due=24960
+24320 Arrive t=2 st=3
+24320 NoteOn ch=1 n=72 v=100 st=3 t=2
+24320 Depart t=2 st=3 fp=3 due=24960
+24480 NoteOff ch=10 n=38
+24560 NoteOff ch=1 n=72
+24960 Arrive t=1 st=1
+24960 NoteOn ch=10 n=36 v=100 st=1 t=1
+24960 Depart t=1 st=1 fp=1 due=25920
+24960 Arrive t=2 st=4
+24960 NoteOn ch=1 n=79 v=100 st=4 t=2
+24960 Depart t=2 st=4 fp=4 due=25600
+25200 NoteOff ch=1 n=79
+25440 NoteOff ch=10 n=36
+25600 Arrive t=2 st=3
+25600 NoteOn ch=1 n=72 v=100 st=3 t=2
+25600 Depart t=2 st=3 fp=3 due=26240
+25840 NoteOff ch=1 n=72
+25920 Arrive t=1 st=2
+25920 NoteOn ch=10 n=38 v=100 st=2 t=1
+25920 Depart t=1 st=2 fp=2 due=26880
+26240 Arrive t=2 st=4
+26240 NoteOn ch=1 n=79 v=100 st=4 t=2
+26240 Depart t=2 st=4 fp=4 due=26880
+26400 NoteOff ch=10 n=38
+26480 NoteOff ch=1 n=79
+26880 Arrive t=1 st=1
+26880 NoteOn ch=10 n=36 v=100 st=1 t=1
+26880 Depart t=1 st=1 fp=1 due=27840
+26880 Arrive t=2 st=3
+26880 NoteOn ch=1 n=72 v=100 st=3 t=2
+26880 Depart t=2 st=3 fp=3 due=27520
+27120 NoteOff ch=1 n=72
+27360 NoteOff ch=10 n=36
+27520 Arrive t=2 st=4
+27520 NoteOn ch=1 n=79 v=100 st=4 t=2
+27520 Depart t=2 st=4 fp=4 due=28160
+27760 NoteOff ch=1 n=79
+27840 Arrive t=1 st=2
+27840 NoteOn ch=10 n=38 v=100 st=2 t=1
+27840 Depart t=1 st=2 fp=2 due=28800
+28160 Arrive t=2 st=3
+28160 NoteOn ch=1 n=72 v=100 st=3 t=2
+28160 Depart t=2 st=3 fp=3 due=28800
+28320 NoteOff ch=10 n=38
+28400 NoteOff ch=1 n=72
+28800 Arrive t=1 st=1
+28800 NoteOn ch=10 n=36 v=100 st=1 t=1
+28800 Depart t=1 st=1 fp=1 due=29760
+28800 Arrive t=2 st=4
+28800 NoteOn ch=1 n=79 v=100 st=4 t=2
+28800 Depart t=2 st=4 fp=4 due=29440
+29040 NoteOff ch=1 n=79
+29280 NoteOff ch=10 n=36
+29440 Arrive t=2 st=3
+29440 NoteOn ch=1 n=72 v=100 st=3 t=2
+29440 Depart t=2 st=3 fp=3 due=30080
+29680 NoteOff ch=1 n=72
+29760 Arrive t=1 st=2
+29760 NoteOn ch=10 n=38 v=100 st=2 t=1
+29760 Depart t=1 st=2 fp=2 due=30720
+30080 Arrive t=2 st=4
+30080 NoteOn ch=1 n=79 v=100 st=4 t=2
+30080 Depart t=2 st=4 fp=4 due=30720
+30240 NoteOff ch=10 n=38
+30320 NoteOff ch=1 n=79
+30720 Stop
