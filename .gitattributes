@@ -1,2 +1,4 @@
 # Golden logs are compared byte for byte (D25): never convert line endings.
 tests/fixtures/golden/** -text
+# Example projects are compared byte for byte with the serializer output (D25).
+examples/*.sflux -text

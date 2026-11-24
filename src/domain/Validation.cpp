@@ -297,6 +297,7 @@ private:
                     "Pass overrides Relative Pass-through");
 
         range(member(sp, "additionalRepeats"), st.additionalRepeats, 0u, limits::kMaxAdditionalRepeats);
+        range(member(sp, "colour"), static_cast<int>(st.colour), 0, limits::kPaletteSize - 1);
         if (st.repeatInterval)
             range(member(sp, "repeatInterval"), st.repeatInterval->value(), limits::kMinNoteDuration, limits::kMaxNoteDuration);
         range(member(sp, "humanize.velocityRange"), st.humanize.velocityRange, 0, limits::kMaxHumanizeVelocity);

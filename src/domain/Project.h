@@ -35,6 +35,8 @@ struct RandomValueSettings {
     MidiNote anchor;
     std::int32_t rangeSteps = 2;  ///< R: draw k in [-R, +R] scale steps. 0–24.
     std::int32_t boundSteps = 7;  ///< W (Walk only): stay within ±W steps of the anchor. 0–48.
+
+    friend bool operator==(const RandomValueSettings&, const RandomValueSettings&) = default;
 };
 
 struct NoteSettings {
@@ -50,22 +52,30 @@ struct NoteSettings {
     std::vector<std::int32_t> chordOffsets;
     Velocity velocity;
     MusicalTick duration{480};             ///< D18/D20: fixed duration, 1…16 quarters.
+
+    friend bool operator==(const NoteSettings&, const NoteSettings&) = default;
 };
 
 struct ControlChangeSettings {
     CcNumber controller;
     CcValue target;
     bool ramp = false;                     ///< Glide to target over the Station's duration.
+
+    friend bool operator==(const ControlChangeSettings&, const ControlChangeSettings&) = default;
 };
 
 struct PitchBendSettings {
     PitchBendValue target;
     bool ramp = false;
+
+    friend bool operator==(const PitchBendSettings&, const PitchBendSettings&) = default;
 };
 
 struct HumanizeSettings {                  // D36
     std::int32_t velocityRange = 0;        ///< ± velocity, 0–64.
     MusicalTick maxDelay{0};               ///< Delay-only timing jitter, 0–480 ticks.
+
+    friend bool operator==(const HumanizeSettings&, const HumanizeSettings&) = default;
 };
 
 struct Station {
@@ -73,6 +83,9 @@ struct Station {
     std::string name;
     GridCoordinate position;
     bool isStart = false;
+    /// D40: index into the theme's Station palette (0–7), not a colour value,
+    /// so switching theme recolours consistently.
+    std::uint8_t colour = 0;
 
     StationEventType eventType = StationEventType::Note;
     NoteSettings note;
@@ -93,6 +106,8 @@ struct Station {
     std::optional<std::uint32_t> terminatorLimit;  ///< D13: nullopt = no terminator; 0 = Block.
     bool manuallyMuted = false;
     HumanizeSettings humanize;
+
+    friend bool operator==(const Station&, const Station&) = default;
 };
 
 // ---------------------------------------------------------------------------
@@ -110,6 +125,8 @@ struct Flowpoint {
     std::vector<GridCoordinate> waypoints;
     RouteWeight weight;                            ///< D32
     RouteRate rate;                                ///< D33
+
+    friend bool operator==(const Flowpoint&, const Flowpoint&) = default;
 };
 
 // ---------------------------------------------------------------------------
@@ -118,11 +135,26 @@ struct Flowpoint {
 
 enum class GateType : std::uint8_t { And, Or, Xor, Not, Nand, Nor };
 
-struct StationActiveInput { StationId station; };
-struct GateOutputInput    { GateId gate; };
-struct SwitchInput        { SwitchId sw; };
-struct MidiNoteInput      { std::optional<MidiChannel> channel; MidiNote note; };
-struct MidiCcInput        { std::optional<MidiChannel> channel; CcNumber controller; CcValue threshold; };
+struct StationActiveInput {
+    StationId station;
+    friend bool operator==(const StationActiveInput&, const StationActiveInput&) = default;
+};
+struct GateOutputInput {
+    GateId gate;
+    friend bool operator==(const GateOutputInput&, const GateOutputInput&) = default;
+};
+struct SwitchInput {
+    SwitchId sw;
+    friend bool operator==(const SwitchInput&, const SwitchInput&) = default;
+};
+struct MidiNoteInput {
+    std::optional<MidiChannel> channel; MidiNote note;
+    friend bool operator==(const MidiNoteInput&, const MidiNoteInput&) = default;
+};
+struct MidiCcInput {
+    std::optional<MidiChannel> channel; CcNumber controller; CcValue threshold;
+    friend bool operator==(const MidiCcInput&, const MidiCcInput&) = default;
+};
 
 using GateInput = std::variant<StationActiveInput, GateOutputInput, SwitchInput, MidiNoteInput, MidiCcInput>;
 
@@ -133,6 +165,8 @@ struct Gate {
     GateType type = GateType::And;
     std::vector<GateInput> inputs;                 ///< NOT: exactly 1. Others: 1–16.
     std::vector<StationId> targets;                ///< Stations whose enable this gate drives.
+
+    friend bool operator==(const Gate&, const Gate&) = default;
 };
 
 struct Switch {
@@ -140,6 +174,8 @@ struct Switch {
     std::string name;
     GridCoordinate position;
     bool on = false;
+
+    friend bool operator==(const Switch&, const Switch&) = default;
 };
 
 // ---------------------------------------------------------------------------
@@ -155,6 +191,8 @@ struct Plot {
     std::vector<Flowpoint> flowpoints;
     std::vector<Gate> gates;
     std::vector<Switch> switches;
+
+    friend bool operator==(const Plot&, const Plot&) = default;
 };
 
 // ---------------------------------------------------------------------------
@@ -164,6 +202,8 @@ struct Plot {
 struct SwitchState {
     SwitchId sw;
     bool on = false;
+
+    friend bool operator==(const SwitchState&, const SwitchState&) = default;
 };
 
 struct Scene {
@@ -172,6 +212,8 @@ struct Scene {
     std::vector<StationId> mutedStations;          ///< Manual mutes; all others unmuted on recall.
     std::vector<SwitchState> switchStates;
     std::optional<MilliBpm> tempo;
+
+    friend bool operator==(const Scene&, const Scene&) = default;
 };
 
 // ---------------------------------------------------------------------------
@@ -181,6 +223,8 @@ struct Scene {
 struct MidiDeviceRef {
     std::string name;
     std::string identifier;                        ///< Platform identifier; may not exist on another machine.
+
+    friend bool operator==(const MidiDeviceRef&, const MidiDeviceRef&) = default;
 };
 
 enum class MidiSourceType : std::uint8_t { Note, ControlChange, PitchBend };
@@ -190,6 +234,8 @@ struct MidiSource {
     std::optional<MidiChannel> channel;            ///< nullopt = any channel.
     MidiSourceType type = MidiSourceType::ControlChange;
     std::int32_t number = 0;                       ///< Note or CC number, 0–127. Ignored for Pitch Bend.
+
+    friend bool operator==(const MidiSource&, const MidiSource&) = default;
 };
 
 enum class MappingTarget : std::uint8_t {
@@ -207,6 +253,8 @@ struct MidiMapping {
     std::optional<StationId> station;
     std::optional<SceneId> scene;
     std::int32_t rangeSteps = 12;                  ///< GlobalTranspose span, 1–48.
+
+    friend bool operator==(const MidiMapping&, const MidiMapping&) = default;
 };
 
 struct MidiSettings {
@@ -217,6 +265,8 @@ struct MidiSettings {
     bool clockWhileStopped = false;                ///< D14
     bool songPositionBeforeStart = true;           ///< D14: SPP = 0 before Start.
     std::vector<MidiMapping> mappings;
+
+    friend bool operator==(const MidiSettings&, const MidiSettings&) = default;
 };
 
 // ---------------------------------------------------------------------------
@@ -242,12 +292,16 @@ struct ProjectSettings {
     SceneQuantize sceneQuantize = SceneQuantize::NextBeat;
     bool linkEnabled = false;                      ///< D37: runtime toggle; needs a Link build.
     std::uint32_t captureMinutes = 10;             ///< D28: 1–60.
+
+    friend bool operator==(const ProjectSettings&, const ProjectSettings&) = default;
 };
 
 struct ProjectMetadata {
     std::string name = "Untitled";
     std::string author;
     std::string notes;
+
+    friend bool operator==(const ProjectMetadata&, const ProjectMetadata&) = default;
 };
 
 struct ProjectDocument {
@@ -257,6 +311,8 @@ struct ProjectDocument {
     MidiSettings midi;
     std::vector<Plot> plots;                       ///< D1: exactly one in v1.
     std::vector<Scene> scenes;                     ///< D35: at most 8.
+
+    friend bool operator==(const ProjectDocument&, const ProjectDocument&) = default;
 };
 
 /// A new, valid project: one empty 64×64 Plot and default settings.
@@ -278,6 +334,7 @@ inline constexpr std::int32_t kMaxHumanizeVelocity = 64;
 inline constexpr std::int64_t kMaxHumanizeDelay = 480;
 inline constexpr std::size_t  kMaxGateInputs = 16;
 inline constexpr std::size_t  kMaxScenes = 8;
+inline constexpr std::uint8_t kPaletteSize = 8;
 inline constexpr std::size_t  kMaxOutputs = 1;
 inline constexpr std::uint32_t kMinTravelerCap = 1;
 inline constexpr std::uint32_t kMaxTravelerCap = 256;

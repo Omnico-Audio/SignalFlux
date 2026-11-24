@@ -32,6 +32,17 @@ target_compile_features(signalflux_core PUBLIC cxx_std_20)
 target_compile_definitions(signalflux_core PUBLIC SIGNALFLUX_VERSION_STRING="${PROJECT_VERSION}")
 signalflux_apply_strict_warnings(signalflux_core)
 
+# signalflux_persistence: project files (SF-010). Depends on the core and a header-only JSON library.
+add_library(signalflux_persistence STATIC
+    persistence/ProjectSerializer.h
+    persistence/ProjectSerializer.cpp)
+add_library(SignalFlux::persistence ALIAS signalflux_persistence)
+target_link_libraries(signalflux_persistence PUBLIC SignalFlux::core)
+# Treat the JSON headers as system headers so our strict warnings apply to our code only.
+target_include_directories(signalflux_persistence SYSTEM PRIVATE
+    $<TARGET_PROPERTY:nlohmann_json::nlohmann_json,INTERFACE_INCLUDE_DIRECTORIES>)
+signalflux_apply_strict_warnings(signalflux_persistence)
+
 if(SIGNALFLUX_BUILD_RENDER)
     add_subdirectory(render)
 endif()

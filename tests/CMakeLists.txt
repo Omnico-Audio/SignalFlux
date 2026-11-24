@@ -12,11 +12,13 @@ add_executable(signalflux_tests
     unit/NoteResolutionTests.cpp
     unit/BranchProbabilityRepeatTests.cpp
     unit/LogicTerminatorTests.cpp
+    unit/PersistenceTests.cpp
 )
-target_link_libraries(signalflux_tests PRIVATE SignalFlux::core Catch2::Catch2WithMain)
+target_link_libraries(signalflux_tests PRIVATE SignalFlux::core SignalFlux::persistence Catch2::Catch2WithMain)
 signalflux_apply_strict_warnings(signalflux_tests)
 target_compile_definitions(signalflux_tests PRIVATE
     SIGNALFLUX_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/golden"
+    SIGNALFLUX_EXAMPLES_DIR="${PROJECT_SOURCE_DIR}/examples"
     # MSVC deprecates std::getenv (C4996); the tests only read SIGNALFLUX_UPDATE_GOLDEN.
     $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>)
 
@@ -34,6 +36,14 @@ if(SIGNALFLUX_BUILD_RENDER)
                 -DBEATS=32
                 -DGOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/fixtures/golden/${example}.log
                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/render-${example}.log
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/CompareRenderOutput.cmake)
+        add_test(NAME render.project.${example}
+            COMMAND ${CMAKE_COMMAND}
+                -DRENDER=$<TARGET_FILE:signalflux-render>
+                -DPROJECT=${PROJECT_SOURCE_DIR}/examples/${example}.sflux
+                -DBEATS=32
+                -DGOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/fixtures/golden/${example}.log
+                -DOUT=${CMAKE_CURRENT_BINARY_DIR}/render-project-${example}.log
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/CompareRenderOutput.cmake)
     endforeach()
 endif()

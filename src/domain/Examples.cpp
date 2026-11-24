@@ -25,6 +25,7 @@ public:
         s.isStart = start;
         s.note.absoluteNote = *MidiNote::make(note);
         s.channel = *MidiChannel::make(channel);
+        s.colour = static_cast<std::uint8_t>(plot().stations.size() % limits::kPaletteSize);
         plot().stations.push_back(std::move(s));
         return plot().stations.back();
     }

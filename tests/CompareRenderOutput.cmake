@@ -2,10 +2,15 @@
 # with the golden log. Guards the renderer's own output path (for example
 # Windows text-mode stdout turning '\n' into "\r\n").
 #
-# Inputs: RENDER (executable), EXAMPLE, BEATS, GOLDEN (file), OUT (scratch file).
+# Inputs: RENDER (executable), EXAMPLE or PROJECT (file), BEATS, GOLDEN (file), OUT (scratch file).
 
+if(DEFINED PROJECT)
+    set(source --project "${PROJECT}")
+else()
+    set(source --example "${EXAMPLE}")
+endif()
 execute_process(
-    COMMAND "${RENDER}" --example "${EXAMPLE}" --beats "${BEATS}"
+    COMMAND "${RENDER}" ${source} --beats "${BEATS}"
     OUTPUT_FILE "${OUT}"
     RESULT_VARIABLE rc)
 if(NOT rc EQUAL 0)
