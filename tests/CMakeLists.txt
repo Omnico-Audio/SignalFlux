@@ -13,7 +13,9 @@ add_executable(signalflux_tests
 target_link_libraries(signalflux_tests PRIVATE SignalFlux::core Catch2::Catch2WithMain)
 signalflux_apply_strict_warnings(signalflux_tests)
 target_compile_definitions(signalflux_tests PRIVATE
-    SIGNALFLUX_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/golden")
+    SIGNALFLUX_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/golden"
+    # MSVC deprecates std::getenv (C4996); the tests only read SIGNALFLUX_UPDATE_GOLDEN.
+    $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>)
 
 include(Catch)
 catch_discover_tests(signalflux_tests)

@@ -35,9 +35,6 @@ std::string readBinary(const std::string& path) {
 }
 
 bool updateRequested() {
-#if defined(_MSC_VER)
-#pragma warning(suppress : 4996) // getenv is fine in a test
-#endif
     const char* v = std::getenv("SIGNALFLUX_UPDATE_GOLDEN");
     return v != nullptr && std::string_view(v) == "1";
 }
