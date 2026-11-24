@@ -19,6 +19,7 @@ std::string_view typeName(EngineEventType t) noexcept {
         case EngineEventType::TravelerSpawn:     return "Spawn";
         case EngineEventType::TravelerArrive:    return "Arrive";
         case EngineEventType::TravelerDepart:    return "Depart";
+        case EngineEventType::TravelerRepeat:    return "Repeat";
         case EngineEventType::TravelerEnd:       return "End";
         case EngineEventType::TravelerDropped:   return "TravelerDropped";
         case EngineEventType::NoteOn:            return "NoteOn";
@@ -70,6 +71,7 @@ std::string toCanonicalString(const EngineEvent& e) {
             break;
         case EngineEventType::TravelerSpawn:
         case EngineEventType::TravelerArrive:
+        case EngineEventType::TravelerRepeat:
         case EngineEventType::TravelerDropped:
             field(out, "t", e.traveler.value());
             field(out, "st", e.station.value());

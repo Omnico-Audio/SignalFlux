@@ -42,6 +42,12 @@ std::optional<RuntimeGraph> RuntimeGraph::compile(const ProjectDocument& doc, Va
         rs.channel = s.channel;
         rs.note = s.note;
         rs.branchMode = s.branchMode;
+        rs.probability = s.probability;
+        rs.additionalRepeats = s.additionalRepeats;
+        rs.repeatInterval = s.repeatInterval.value_or(s.note.duration);
+        rs.terminatorLimit = s.terminatorLimit;
+        rs.controlChange = s.controlChange;
+        rs.pitchBend = s.pitchBend;
         g.stations_.push_back(std::move(rs));
         g.stationLookup_.emplace_back(s.id.value(), static_cast<StationIndex>(i));
     }
@@ -55,7 +61,7 @@ std::optional<RuntimeGraph> RuntimeGraph::compile(const ProjectDocument& doc, Va
         const auto length = manhattanLength(plot.stations[from].position, plot.stations[to].position);
         const auto duration = legDuration(length, doc.settings.gridSpacing, f.rate);
         if (!duration) return std::nullopt; // unreachable after validation; defensive
-        g.flowpoints_.push_back(RuntimeFlowpoint{f.id, from, to, *duration});
+        g.flowpoints_.push_back(RuntimeFlowpoint{f.id, from, to, *duration, f.weight});
         g.flowpointLookup_.emplace_back(f.id.value(), static_cast<FlowpointIndex>(i));
     }
     std::sort(g.flowpointLookup_.begin(), g.flowpointLookup_.end());

@@ -108,6 +108,42 @@ ProjectDocument polyrhythm() {
     return b.done();
 }
 
+/// Sequential, weighted Random and Instant hubs side by side, with a 70%
+/// probability spoke and a Repeat spoke (D6, D7, D8, D32).
+ProjectDocument branches() {
+    Builder b{"Branches"};
+    // Sequential hub (channel 1)
+    b.station(1, {2, 2}, 48, true);
+    b.station(2, {2, 1}, 60);
+    b.station(3, {3, 2}, 64);
+    b.route(1, 1, 2);
+    b.route(2, 1, 3);
+    b.route(3, 2, 1);
+    b.route(4, 3, 1);
+    // Weighted Random hub (channel 2)
+    b.station(11, {8, 2}, 50, true, 2).branchMode = BranchMode::Random;
+    b.station(12, {8, 1}, 62, false, 2).probability = *ProbabilityPercent::make(70);
+    b.station(13, {9, 2}, 65, false, 2);
+    b.route(11, 11, 12);
+    b.route(12, 11, 13);
+    b.route(13, 12, 11);
+    b.route(14, 13, 11);
+    b.get(11).outgoingOrder = {FlowpointId{11}, FlowpointId{12}};
+    // Instant hub (channel 3): one spoke loops back with a Repeat, the other ends
+    b.station(21, {14, 2}, 43, true, 3).branchMode = BranchMode::Instant;
+    b.station(22, {14, 1}, 55, false, 3).additionalRepeats = 1;
+    b.station(23, {15, 2}, 59, false, 3);
+    b.route(21, 21, 22);
+    b.route(22, 21, 23);
+    b.route(23, 22, 21);
+    ProjectDocument doc = b.done();
+    for (auto& f : doc.plots.front().flowpoints)
+        if (f.id == FlowpointId{11}) f.weight = *RouteWeight::make(2);
+    doc.settings.randomSeed = 7;
+    doc.settings.seedMode = SeedMode::Fixed;
+    return doc;
+}
+
 /// A bounded random walk over A minor pentatonic (D10 Walk mode).
 ProjectDocument wanderer() {
     Builder b{"Wanderer"};
@@ -142,6 +178,7 @@ struct Entry {
 constexpr Entry kExamples[] = {
     {"first-loop", firstLoop},
     {"sequential-hub", sequentialHub},
+    {"branches", branches},
     {"instant-bloom", instantBloom},
     {"polyrhythm", polyrhythm},
     {"wanderer", wanderer},

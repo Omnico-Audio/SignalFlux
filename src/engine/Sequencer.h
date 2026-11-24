@@ -13,11 +13,11 @@
 //   3. arrivals, in ascending TravelerId order
 //   (4. logic re-evaluation: SF-006)
 //
-// Scope so far: Sequential and Instant branching, full note resolution
-// (SF-004), manual mute, Traveler and note caps, in-flight edits, transport.
-// Random branching behaves as Sequential until SF-005; probability and repeat
-// arrive in SF-005; gates and Terminators in SF-006; CC and Pitch Bend
-// Stations in SF-007.
+// A Traveler is either travelling a leg or dwelling at a Station while its
+// Repeat group plays (D8). Entering a Station runs, in order: (SF-006:
+// Terminator), silence decision (manual mute, gates, probability: evaluated
+// once per arrival, D7), resolution, Note Ons, then either the Repeat group or
+// departure. Mute and probability change sound only, never timing or routing (P2).
 //
 // Thread ownership: one Sequencer belongs to one thread (the engine thread).
 // No method is thread-safe. After play(), processUntil() performs no
@@ -41,7 +41,8 @@ enum class TransportState : std::uint8_t { Stopped, Playing, Paused };
 
 struct TravelerView {
     TravelerId id;
-    FlowpointId flowpoint;
+    bool dwelling = false;       ///< At a Station playing its Repeat group; from == to.
+    FlowpointId flowpoint;       ///< Invalid (0) while dwelling.
     StationId from;              ///< Source Station: the sprite's colour (SF-009).
     StationId to;
     MusicalTick legStart;
@@ -99,23 +100,37 @@ public:
     [[nodiscard]] EngineSnapshot snapshot() const;
 
 private:
+    enum class Phase : std::uint8_t { Travelling, Dwelling };
+
     struct Traveler {
         TravelerId id;
-        FlowpointIndex flowpoint = 0;
-        MusicalTick legStart;
-        MusicalTick deadline;
+        Phase phase = Phase::Travelling;
+        FlowpointIndex flowpoint = 0;          ///< Travelling: current leg.
+        StationIndex station = 0;              ///< Dwelling: current Station.
+        MusicalTick legStart;                  ///< Travelling: leg start. Dwelling: arrival.
+        MusicalTick deadline;                  ///< Next arrival or next Repeat trigger.
         NoteContext context;                   ///< Carried signal data (D19, D39).
+        // Repeat group (D8), valid while dwelling.
+        ResolvedNotes repeatNotes;
+        bool silent = false;
+        std::uint32_t repeatsLeft = 0;
+        MusicalTick repeatInterval;
     };
 
     void emit(EngineEvent e) noexcept { sink_.onEngineEvent(e); }
     void processTick(MusicalTick t);
-    void arrive(TravelerId id, MusicalTick t);
-    [[nodiscard]] NoteContext trigger(StationIndex s, TravelerId traveler, MusicalTick t, const NoteContext& incoming);
+    void enterStation(std::size_t index, StationIndex s, MusicalTick t);
+    void repeatTrigger(std::size_t index, MusicalTick t);
+    void departOrEnd(std::size_t index, StationIndex s, MusicalTick t);
+    [[nodiscard]] bool isSilent(StationIndex s) noexcept;
+    void emitNotes(StationIndex s, const ResolvedNotes& notes, TravelerId traveler, MusicalTick t);
     void chooseRoutes(StationIndex s);
     void depart(Traveler& traveler, StationIndex from, FlowpointIndex route, MusicalTick t);
     void spawnChildren(StationIndex from, std::size_t parentIndex, std::size_t firstRoute, MusicalTick t);
+    void endTraveler(std::size_t index, StationId at, EndReason why, MusicalTick t);
     void performStop();
     void releaseAllNotes();
+    void silencePendingRepeats() noexcept;
     [[nodiscard]] std::optional<MusicalTick> nextEventTick() const noexcept;
     [[nodiscard]] std::size_t travelerCap() const noexcept;
     [[nodiscard]] TravelerId newTravelerId() noexcept { return TravelerId{nextTravelerId_++}; }

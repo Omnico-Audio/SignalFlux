@@ -1,4 +1,4 @@
-// SignalFlux — sequencing engine (task SF-003).
+// SignalFlux — sequencing engine (tasks SF-003, SF-004, SF-005).
 // Copyright (C) 2026 The SignalFlux contributors. Licensed under the GNU AGPLv3.
 
 #include "engine/Sequencer.h"
@@ -17,6 +17,29 @@ MusicalTick ceilToClock(MusicalTick t) noexcept {
     const auto r = v % kTicksPerMidiClock;
     return MusicalTick{r == 0 ? v : v + (kTicksPerMidiClock - r)};
 }
+
+EngineEvent makeEvent(EngineEventType type, MusicalTick t, TravelerId traveler = {}, StationId station = {}) noexcept {
+    EngineEvent e;
+    e.type = type;
+    e.tick = t;
+    e.traveler = traveler;
+    e.station = station;
+    return e;
+}
+
+/// Value draws for Random Value Mode come from the Station's own stream (D10).
+class StationValueDraw final : public IntDraw {
+public:
+    StationValueDraw(RandomStreams& r, std::size_t index, StationId id) : r_(r), index_(index), id_(id) {}
+    std::int64_t draw(std::int64_t lo, std::int64_t hi) noexcept override {
+        return r_.between(index_, id_, RandomPurpose::Value, lo, hi);
+    }
+
+private:
+    RandomStreams& r_;
+    std::size_t index_;
+    StationId id_;
+};
 
 } // namespace
 
@@ -39,19 +62,28 @@ ValidationReport Sequencer::setDocument(const ProjectDocument& doc) {
     auto compiled = RuntimeGraph::compile(doc, &report);
     if (!compiled) return report;
 
-    // Reconcile in-flight Travelers against the new geometry.
     if (graph_) {
         for (std::size_t i = 0; i < travelers_.size();) {
             Traveler& tr = travelers_[i];
+            if (tr.phase == Phase::Dwelling) {
+                const StationId at = graph_->stations()[tr.station].id;
+                if (const auto ni = compiled->stationIndex(at)) {
+                    tr.station = *ni;
+                    ++i;
+                } else {
+                    auto e = makeEvent(EngineEventType::TravelerEnd, now_, tr.id, at);
+                    e.endReason = EndReason::StationDeleted;
+                    emit(e);
+                    travelers_[i] = travelers_.back();
+                    travelers_.pop_back();
+                }
+                continue;
+            }
             const RuntimeFlowpoint& oldFp = graph_->flowpoints()[tr.flowpoint];
             const auto newIndex = compiled->flowpointIndex(oldFp.id);
             if (!newIndex) {
                 const StationId to = graph_->stations()[oldFp.to].id;
-                EngineEvent e;
-                e.tick = now_;
-                e.type = EngineEventType::TravelerEnd;
-                e.traveler = tr.id;
-                e.station = to;
+                auto e = makeEvent(EngineEventType::TravelerEnd, now_, tr.id, to);
                 e.flowpoint = oldFp.id;
                 e.endReason = compiled->stationIndex(to) ? EndReason::RouteDeleted : EndReason::StationDeleted;
                 emit(e);
@@ -107,48 +139,25 @@ void Sequencer::play(std::optional<std::uint64_t> seed) {
     stats_ = {};
     transport_ = TransportState::Playing;
 
-    EngineEvent start;
-    start.tick = now_;
-    start.type = EngineEventType::TransportStart;
-    emit(start);
+    emit(makeEvent(EngineEventType::TransportStart, now_));
 
-    // Starters: trigger immediately at tick 0, then depart (BEHAVIORAL §1).
+    // Starters: trigger immediately at tick 0, then repeat or depart (BEHAVIORAL §1).
     for (const StationIndex s : graph_->startStations()) {
         const StationId sid = graph_->stations()[s].id;
         if (travelers_.size() >= travelerCap()) {
             ++stats_.droppedTravelers;
-            EngineEvent d;
-            d.tick = now_;
-            d.type = EngineEventType::TravelerDropped;
-            d.station = sid;
-            emit(d);
+            emit(makeEvent(EngineEventType::TravelerDropped, now_, {}, sid));
             continue;
         }
-        const TravelerId id = newTravelerId();
-        EngineEvent spawn;
-        spawn.tick = now_;
-        spawn.type = EngineEventType::TravelerSpawn;
-        spawn.traveler = id;
-        spawn.station = sid;
-        emit(spawn);
-
-        const NoteContext context = trigger(s, id, now_, NoteContext{});
-        chooseRoutes(s);
-        if (routeScratch_.empty()) {
-            EngineEvent end;
-            end.tick = now_;
-            end.type = EngineEventType::TravelerEnd;
-            end.traveler = id;
-            end.station = sid;
-            end.endReason = EndReason::NoRoute;
-            emit(end);
-            continue;
-        }
-        travelers_.push_back(Traveler{id, 0, now_, now_, context});
-        depart(travelers_.back(), s, routeScratch_.front(), now_);
-        spawnChildren(s, travelers_.size() - 1, 1, now_);
+        Traveler tr;
+        tr.id = newTravelerId();
+        tr.legStart = now_;
+        tr.deadline = now_;
+        travelers_.push_back(tr);
+        emit(makeEvent(EngineEventType::TravelerSpawn, now_, tr.id, sid));
+        enterStation(travelers_.size() - 1, s, now_);
+        stats_.travelerHighWater = std::max(stats_.travelerHighWater, travelers_.size());
     }
-    stats_.travelerHighWater = std::max(stats_.travelerHighWater, travelers_.size());
 }
 
 void Sequencer::requestStop() {
@@ -159,36 +168,34 @@ void Sequencer::requestStop() {
 
 void Sequencer::performStop() {
     releaseAllNotes();
-    EngineEvent stop;
-    stop.tick = now_;
-    stop.type = EngineEventType::TransportStop;
-    emit(stop);
+    silencePendingRepeats();
+    emit(makeEvent(EngineEventType::TransportStop, now_));
     stopAt_.reset();
     transport_ = TransportState::Paused;
 }
 
 void Sequencer::continuePlayback() {
     if (transport_ != TransportState::Paused) return;
-    EngineEvent cont;
-    cont.tick = now_;
-    cont.type = EngineEventType::TransportContinue;
-    emit(cont);
+    emit(makeEvent(EngineEventType::TransportContinue, now_));
     transport_ = TransportState::Playing;
 }
 
 void Sequencer::panic() {
     releaseAllNotes();
-    EngineEvent p;
-    p.tick = now_;
-    p.type = EngineEventType::Panic;
-    emit(p);
+    silencePendingRepeats();
+    emit(makeEvent(EngineEventType::Panic, now_));
+}
+
+/// D8: Stop or Panic discards a Repeat group's remaining triggers. The dwell
+/// time itself is kept, so routing and timing are unchanged (P2).
+void Sequencer::silencePendingRepeats() noexcept {
+    for (auto& tr : travelers_)
+        if (tr.phase == Phase::Dwelling) tr.silent = true;
 }
 
 void Sequencer::releaseAllNotes() {
     notes_.releaseAll([this](const ActiveNoteRegistry::Release& r) {
-        EngineEvent off;
-        off.tick = now_;
-        off.type = EngineEventType::NoteOff;
+        auto off = makeEvent(EngineEventType::NoteOff, now_);
         off.channel = r.channel;
         off.note = r.note;
         emit(off);
@@ -226,117 +233,129 @@ void Sequencer::processUntil(MusicalTick horizon) {
 }
 
 void Sequencer::processTick(MusicalTick t) {
-    // D21 step 2: Note Offs before Note Ons, so a note ending exactly when the
-    // same pitch starts never cuts the new note.
+    // D21 step 2: Note Offs before Note Ons.
     notes_.releaseDue(t, [this, t](const ActiveNoteRegistry::Release& r) {
-        EngineEvent off;
-        off.tick = t;
-        off.type = EngineEventType::NoteOff;
+        auto off = makeEvent(EngineEventType::NoteOff, t);
         off.channel = r.channel;
         off.note = r.note;
         emit(off);
     });
 
-    // D21 step 3: arrivals in ascending TravelerId order.
+    // D21 step 3: arrivals and Repeat triggers in ascending TravelerId order.
     dueScratch_.clear();
     for (const auto& tr : travelers_)
         if (tr.deadline == t) dueScratch_.push_back(tr.id);
     std::sort(dueScratch_.begin(), dueScratch_.end());
-    for (const TravelerId id : dueScratch_) arrive(id, t);
+
+    for (const TravelerId id : dueScratch_) {
+        const auto it = std::find_if(travelers_.begin(), travelers_.end(), [id](const Traveler& tr) { return tr.id == id; });
+        if (it == travelers_.end()) continue;
+        const auto index = static_cast<std::size_t>(it - travelers_.begin());
+
+        if (it->phase == Phase::Dwelling) {
+            repeatTrigger(index, t);
+            continue;
+        }
+        const StationIndex s = graph_->flowpoints()[it->flowpoint].to;
+        emit(makeEvent(EngineEventType::TravelerArrive, t, id, graph_->stations()[s].id));
+        enterStation(index, s, t);
+    }
 
     stats_.travelerHighWater = std::max(stats_.travelerHighWater, travelers_.size());
 }
 
-void Sequencer::arrive(TravelerId id, MusicalTick t) {
-    const auto it = std::find_if(travelers_.begin(), travelers_.end(), [id](const Traveler& tr) { return tr.id == id; });
-    if (it == travelers_.end()) return;
-    const auto index = static_cast<std::size_t>(it - travelers_.begin());
-
-    const StationIndex s = graph_->flowpoints()[travelers_[index].flowpoint].to;
-    const StationId sid = graph_->stations()[s].id;
-
-    EngineEvent arriveEvent;
-    arriveEvent.tick = t;
-    arriveEvent.type = EngineEventType::TravelerArrive;
-    arriveEvent.traveler = id;
-    arriveEvent.station = sid;
-    emit(arriveEvent);
-
-    travelers_[index].context = trigger(s, id, t, travelers_[index].context);
-    chooseRoutes(s);
-
-    if (routeScratch_.empty()) { // D24: end of chain
-        EngineEvent end;
-        end.tick = t;
-        end.type = EngineEventType::TravelerEnd;
-        end.traveler = id;
-        end.station = sid;
-        end.endReason = EndReason::NoRoute;
-        emit(end);
-        travelers_[index] = travelers_.back();
-        travelers_.pop_back();
-        return;
-    }
-
-    depart(travelers_[index], s, routeScratch_.front(), t);
-    spawnChildren(s, index, 1, t);
+bool Sequencer::isSilent(StationIndex s) noexcept {
+    const RuntimeStation& st = graph_->stations()[s];
+    if (st.manuallyMuted) return true;
+    // D7: probability is evaluated once per arrival; 0 and 100 consume no draw.
+    const int p = st.probability.value();
+    if (p == 0) return true;
+    if (p == 100) return false;
+    return random_.below(s, st.id, RandomPurpose::Probability, 100) >= static_cast<std::uint64_t>(p);
 }
 
-namespace {
-
-/// Value draws for Random Value Mode come from the Station's own stream (D10).
-class StationValueDraw final : public IntDraw {
-public:
-    StationValueDraw(RandomStreams& r, std::size_t index, StationId id) : r_(r), index_(index), id_(id) {}
-    std::int64_t draw(std::int64_t lo, std::int64_t hi) noexcept override {
-        return r_.between(index_, id_, RandomPurpose::Value, lo, hi);
-    }
-
-private:
-    RandomStreams& r_;
-    std::size_t index_;
-    StationId id_;
-};
-
-} // namespace
-
-NoteContext Sequencer::trigger(StationIndex s, TravelerId traveler, MusicalTick t, const NoteContext& incoming) {
+void Sequencer::enterStation(std::size_t index, StationIndex s, MusicalTick t) {
     const RuntimeStation& st = graph_->stations()[s];
-    if (st.eventType != StationEventType::Note) return incoming; // D26: CC/PB never touch note context (SF-007)
+    const bool silent = isSilent(s);
 
-    // Resolution always runs, even when silent, so the melodic context and the
-    // random streams do not depend on mute state (P2, D19).
-    StationValueDraw draw{random_, s, st.id};
-    const ResolvedNotes resolved =
-        resolveNotes(st.note, ScaleContext{graph_->settings().root, graph_->settings().scale}, incoming, draw);
-    if (st.manuallyMuted) return resolved.outgoing;
+    ResolvedNotes resolved;
+    if (st.eventType == StationEventType::Note) {
+        // Resolution always runs, even when silent, so the melodic context and
+        // the random streams do not depend on mute or probability (P2, D19).
+        StationValueDraw draw{random_, s, st.id};
+        resolved = resolveNotes(st.note, ScaleContext{graph_->settings().root, graph_->settings().scale},
+                                travelers_[index].context, draw);
+        travelers_[index].context = resolved.outgoing;
+        if (!silent) emitNotes(s, resolved, travelers_[index].id, t);
+    }
+    // CC and Pitch Bend Stations (D26) emit in SF-007 and never touch note context.
 
+    if (st.additionalRepeats > 0) {
+        Traveler& tr = travelers_[index];
+        tr.phase = Phase::Dwelling;
+        tr.station = s;
+        tr.repeatNotes = resolved;
+        tr.silent = silent;
+        tr.repeatsLeft = st.additionalRepeats;
+        tr.repeatInterval = st.repeatInterval;
+        tr.legStart = t;
+        tr.deadline = t + st.repeatInterval;
+        return;
+    }
+    departOrEnd(index, s, t);
+}
+
+void Sequencer::repeatTrigger(std::size_t index, MusicalTick t) {
+    Traveler& tr = travelers_[index];
+    const StationIndex s = tr.station;
+    emit(makeEvent(EngineEventType::TravelerRepeat, t, tr.id, graph_->stations()[s].id));
+    if (!tr.silent) emitNotes(s, tr.repeatNotes, tr.id, t);
+    if (--tr.repeatsLeft > 0) {
+        tr.deadline = t + tr.repeatInterval;
+        return;
+    }
+    departOrEnd(index, s, t); // D8: departure coincides with the final trigger
+}
+
+void Sequencer::emitNotes(StationIndex s, const ResolvedNotes& resolved, TravelerId traveler, MusicalTick t) {
+    const RuntimeStation& st = graph_->stations()[s];
     for (std::size_t i = 0; i < resolved.count; ++i) { // ascending pitch order (D34)
         const MidiNote pitch = resolved.pitches[i];
         if (!notes_.add(st.channel, pitch, t + st.note.duration)) {
             ++stats_.droppedNotes;
-            EngineEvent d;
-            d.tick = t;
-            d.type = EngineEventType::NoteDropped;
+            auto d = makeEvent(EngineEventType::NoteDropped, t, {}, st.id);
             d.channel = st.channel;
             d.note = pitch;
-            d.station = st.id;
             emit(d);
             continue;
         }
         stats_.noteHighWater = std::max(stats_.noteHighWater, notes_.size());
-
-        EngineEvent on;
-        on.tick = t;
-        on.type = EngineEventType::NoteOn;
+        auto on = makeEvent(EngineEventType::NoteOn, t, traveler, st.id);
         on.channel = st.channel;
         on.note = pitch;
         on.velocity = st.note.velocity;
-        on.station = st.id;
-        on.traveler = traveler;
         emit(on);
     }
-    return resolved.outgoing;
+}
+
+void Sequencer::endTraveler(std::size_t index, StationId at, EndReason why, MusicalTick t) {
+    auto e = makeEvent(EngineEventType::TravelerEnd, t, travelers_[index].id, at);
+    e.endReason = why;
+    emit(e);
+    travelers_[index] = travelers_.back();
+    travelers_.pop_back();
+}
+
+void Sequencer::departOrEnd(std::size_t index, StationIndex s, MusicalTick t) {
+    chooseRoutes(s);
+    if (routeScratch_.empty()) { // D24 (and D32: all weights zero)
+        endTraveler(index, graph_->stations()[s].id, EndReason::NoRoute, t);
+        return;
+    }
+    Traveler& tr = travelers_[index];
+    tr.phase = Phase::Travelling;
+    depart(tr, s, routeScratch_.front(), t);
+    spawnChildren(s, index, 1, t);
 }
 
 void Sequencer::chooseRoutes(StationIndex s) {
@@ -349,7 +368,21 @@ void Sequencer::chooseRoutes(StationIndex s) {
         case BranchMode::Instant:
             routeScratch_.assign(st.outgoing.begin(), st.outgoing.end()); // within reserved capacity
             return;
-        case BranchMode::Random:     // TODO(SF-005): weighted seeded draw (D10, D32)
+        case BranchMode::Random: { // D32: weighted, seeded, integer draw
+            std::uint64_t total = 0;
+            for (const auto f : st.outgoing) total += static_cast<std::uint64_t>(graph_->flowpoints()[f].weight.value());
+            if (total == 0) return;
+            std::uint64_t pick = random_.below(s, st.id, RandomPurpose::Branch, total);
+            for (const auto f : st.outgoing) {
+                const auto w = static_cast<std::uint64_t>(graph_->flowpoints()[f].weight.value());
+                if (pick < w) {
+                    routeScratch_.push_back(f);
+                    return;
+                }
+                pick -= w;
+            }
+            return;
+        }
         case BranchMode::Sequential: {
             std::uint32_t& next = roundRobin_[s];
             if (next >= n) next = 0; // D6: counter reset after deletions
@@ -361,15 +394,12 @@ void Sequencer::chooseRoutes(StationIndex s) {
 }
 
 void Sequencer::depart(Traveler& traveler, StationIndex from, FlowpointIndex route, MusicalTick t) {
+    traveler.phase = Phase::Travelling;
     traveler.flowpoint = route;
     traveler.legStart = t;
     traveler.deadline = t + graph_->flowpoints()[route].duration;
 
-    EngineEvent e;
-    e.tick = t;
-    e.type = EngineEventType::TravelerDepart;
-    e.traveler = traveler.id;
-    e.station = graph_->stations()[from].id;
+    auto e = makeEvent(EngineEventType::TravelerDepart, t, traveler.id, graph_->stations()[from].id);
     e.flowpoint = graph_->flowpoints()[route].id;
     e.deadline = traveler.deadline;
     emit(e);
@@ -381,16 +411,13 @@ void Sequencer::spawnChildren(StationIndex from, std::size_t parentIndex, std::s
     for (std::size_t r = firstRoute; r < routeScratch_.size(); ++r) {
         if (travelers_.size() >= travelerCap()) {
             ++stats_.droppedTravelers;
-            EngineEvent d;
-            d.tick = t;
-            d.type = EngineEventType::TravelerDropped;
-            d.station = graph_->stations()[from].id;
-            emit(d);
+            emit(makeEvent(EngineEventType::TravelerDropped, t, {}, graph_->stations()[from].id));
             continue;
         }
-        // Children inherit the parent's context after this Station (D19).
-        const NoteContext context = travelers_[parentIndex].context;
-        travelers_.push_back(Traveler{newTravelerId(), 0, t, t, context});
+        Traveler child;
+        child.id = newTravelerId();
+        child.context = travelers_[parentIndex].context; // D19: children inherit context
+        travelers_.push_back(child);
         depart(travelers_.back(), from, routeScratch_[r], t);
     }
 }
@@ -403,9 +430,20 @@ EngineSnapshot Sequencer::snapshot() const {
     if (!graph_) return snap;
     snap.travelers.reserve(travelers_.size());
     for (const auto& tr : travelers_) {
-        const auto& fp = graph_->flowpoints()[tr.flowpoint];
-        snap.travelers.push_back(TravelerView{tr.id, fp.id, graph_->stations()[fp.from].id,
-                                              graph_->stations()[fp.to].id, tr.legStart, tr.deadline});
+        TravelerView v;
+        v.id = tr.id;
+        v.legStart = tr.legStart;
+        v.deadline = tr.deadline;
+        if (tr.phase == Phase::Dwelling) {
+            v.dwelling = true;
+            v.from = v.to = graph_->stations()[tr.station].id;
+        } else {
+            const auto& fp = graph_->flowpoints()[tr.flowpoint];
+            v.flowpoint = fp.id;
+            v.from = graph_->stations()[fp.from].id;
+            v.to = graph_->stations()[fp.to].id;
+        }
+        snap.travelers.push_back(v);
     }
     std::sort(snap.travelers.begin(), snap.travelers.end(),
               [](const TravelerView& a, const TravelerView& b) { return a.id < b.id; });

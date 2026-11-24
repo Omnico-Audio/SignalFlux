@@ -32,6 +32,12 @@ struct RuntimeStation {
     NoteSettings note;
     BranchMode branchMode = BranchMode::Sequential;
     std::vector<FlowpointIndex> outgoing; ///< In the Station's explicit outgoing order (D6).
+    ProbabilityPercent probability;
+    std::uint32_t additionalRepeats = 0;  ///< D8
+    MusicalTick repeatInterval;           ///< D8: resolved (defaults to note duration)
+    std::optional<std::uint32_t> terminatorLimit; ///< D13
+    ControlChangeSettings controlChange;  ///< D26
+    PitchBendSettings pitchBend;          ///< D26
 };
 
 struct RuntimeFlowpoint {
@@ -39,6 +45,7 @@ struct RuntimeFlowpoint {
     StationIndex from = 0;
     StationIndex to = 0;
     MusicalTick duration;                 ///< Leg duration from current geometry (D2, D33).
+    RouteWeight weight;                   ///< D32
 };
 
 class RuntimeGraph {

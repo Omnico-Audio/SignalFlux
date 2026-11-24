@@ -497,6 +497,16 @@ The spec says Relative Pass-through "forwards the incoming offset unchanged" but
 
 **Tests.** `Relative mode sets the outgoing offset; Pass-through forwards the incoming one (D39)`; `Non-Relative Stations leave the carried offset unchanged (D39)`.
 
+## D40 — Visual theme (owner decision, 2026-11-24)
+
+[x] Accepted
+
+- **Default theme: "Night transit".** Dark blue-black canvas `#10131A`, grid dots `#2A3140`, primary text `#E8EAF0`.
+- **Station colours** (Traveler sprites and route direction markers take their source Station's colour, per SF-009), in assignment order. Based on the Okabe-Ito set, chosen to stay distinguishable with common colour-vision deficiencies:
+  `#E69F00` orange, `#56B4E9` sky, `#009E73` green, `#F0E442` yellow, `#0072B2` blue, `#D55E00` vermillion, `#CC79A7` pink, `#E8EAF0` white.
+- **Light theme toggle: "Paper sketch".** Canvas `#F4F1EA`, grid dots `#C9C3B6`, ink `#22252B`; Station colours `#D1495B`, `#30638E`, `#00798C`, `#EDAE49`, `#8E5572`, `#66A182`, `#E07A5F`, `#3D405B`.
+- A Station's colour is stored as a **palette index (0–7)**, not a hex value, so switching theme recolours everything consistently. The theme choice is an app preference, not saved in the project.
+
 ---
 
 # Beta feature scope (owner-approved additions, 2026-11-23)
@@ -661,6 +671,7 @@ Giving beta builds to testers counts as distribution, so the source repository m
 | D20 note duration | Fixed per-Station duration; legato deferred |
 | D23 Traveler cap | Default **8** |
 | D25 determinism | Cross-platform consistency is a release gate |
+| D40 theme | Night transit default, Paper sketch light theme toggle |
 | D27–D38 | Beta features approved: undo/redo, Capture, seed history, MIDI Learn, beat ticks, weighted Random, per-route speed, chord Stations, Scenes, swing/humanize, Ableton Link (build flag), example projects |
 | Licence | SignalFlux is AGPLv3 open source; Link enabled |
 | Beta platforms | macOS and Windows. Linux app build deferred; engine tests still run on Linux in CI as a third-compiler determinism check |
