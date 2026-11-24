@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # Full application + tests on the beta platforms.
+  app:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (Apple Silicon)
+            os: macos-14
+            preset: macos
+            build: macos-release
+          - name: Windows x64
+            os: windows-latest
+            preset: windows
+            build: windows-release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record toolchain
+        shell: bash
+        run: |
+          cmake --version | head -1
+          if [ "$RUNNER_OS" = "macOS" ]; then xcodebuild -version; else cmd //c "where cl" || true; fi
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/${{ matrix.preset }}/_deps
+          key: deps-${{ runner.os }}-${{ hashFiles('cmake/SignalFluxDependencies.cmake') }}
+
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.build }} --parallel
+
+      - name: Test
+        run: ctest --preset ${{ matrix.build }}
+
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: SignalFlux-${{ runner.os }}
+          path: |
+            build/${{ matrix.preset }}/src/app/SignalFlux_artefacts/Release/
+          if-no-files-found: error
+
+  # Engine-only build with GCC on Linux: no app is built for Linux in the beta,
+  # but a third compiler/standard library guards the cross-platform determinism gate (D25).
+  engine-linux:
+    name: Engine determinism (Linux, GCC)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Record toolchain
+        run: cmake --version | head -1 && g++ --version | head -1
+      - name: Configure
+        run: cmake --preset engine-release
+      - name: Build
+        run: cmake --build --preset engine-release --parallel
+      - name: Test
+        run: ctest --preset engine-release
