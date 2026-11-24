@@ -108,6 +108,32 @@ ProjectDocument polyrhythm() {
     return b.done();
 }
 
+/// A bounded random walk over A minor pentatonic (D10 Walk mode).
+ProjectDocument wanderer() {
+    Builder b{"Wanderer"};
+    b.station(1, {0, 0}, 57, true);
+    b.station(2, {1, 0}, 57);
+    b.station(3, {1, 1}, 57);
+    b.route(1, 1, 2);
+    b.route(2, 2, 3);
+    b.route(3, 3, 1);
+    for (std::uint32_t id = 1; id <= 3; ++id) {
+        auto& n = b.get(id).note;
+        n.mode = NoteMode::RandomValue;
+        n.random.mode = RandomValueMode::Walk;
+        n.random.anchor = MidiNote::of<69>();
+        n.random.rangeSteps = id == 3 ? 3 : 1;
+        n.random.boundSteps = 6;
+        n.duration = MusicalTick{720};
+    }
+    ProjectDocument doc = b.done();
+    doc.settings.root = PitchClass::of<9>();
+    doc.settings.scale = maskFor(ScalePreset::MinorPentatonic);
+    doc.settings.randomSeed = 2026;
+    doc.settings.seedMode = SeedMode::Fixed;
+    return doc;
+}
+
 struct Entry {
     std::string_view name;
     ProjectDocument (*make)();
@@ -118,6 +144,7 @@ constexpr Entry kExamples[] = {
     {"sequential-hub", sequentialHub},
     {"instant-bloom", instantBloom},
     {"polyrhythm", polyrhythm},
+    {"wanderer", wanderer},
 };
 
 } // namespace

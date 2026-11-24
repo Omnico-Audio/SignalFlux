@@ -10,6 +10,9 @@ add_library(signalflux_core STATIC
     domain/Examples.h
     domain/Examples.cpp
     engine/LegTiming.h
+    engine/Random.h
+    engine/NoteResolution.h
+    engine/NoteResolution.cpp
     engine/RuntimeGraph.h
     engine/RuntimeGraph.cpp
     engine/EngineEvent.h

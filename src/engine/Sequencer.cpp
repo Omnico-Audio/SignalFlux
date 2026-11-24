@@ -64,14 +64,20 @@ ValidationReport Sequencer::setDocument(const ProjectDocument& doc) {
             ++i;
         }
 
-        // Round-robin state survives edits for Stations that still exist (D6).
+        // Round-robin state and random-stream counters survive edits for
+        // Stations that still exist (D6, D10).
         std::vector<std::uint32_t> remapped(compiled->stations().size(), 0);
+        std::vector<std::ptrdiff_t> newToOld(compiled->stations().size(), -1);
         for (std::size_t i = 0; i < graph_->stations().size(); ++i)
-            if (const auto ni = compiled->stationIndex(graph_->stations()[i].id))
+            if (const auto ni = compiled->stationIndex(graph_->stations()[i].id)) {
                 remapped[*ni] = roundRobin_[i];
+                newToOld[*ni] = static_cast<std::ptrdiff_t>(i);
+            }
         roundRobin_ = std::move(remapped);
+        random_.remap(newToOld);
     } else {
         roundRobin_.assign(compiled->stations().size(), 0);
+        random_.reset(compiled->settings().randomSeed, compiled->stations().size());
     }
 
     std::size_t maxOut = 0;
@@ -87,7 +93,7 @@ ValidationReport Sequencer::setDocument(const ProjectDocument& doc) {
 // Transport (D14)
 // ---------------------------------------------------------------------------
 
-void Sequencer::play() {
+void Sequencer::play(std::optional<std::uint64_t> seed) {
     if (!graph_) return;
     if (transport_ != TransportState::Stopped) releaseAllNotes(); // never leave stuck notes
 
@@ -96,6 +102,7 @@ void Sequencer::play() {
     travelers_.clear();
     std::fill(roundRobin_.begin(), roundRobin_.end(), 0u);
     notes_.reset(graph_->settings().activeNoteCap);
+    random_.reset(seed.value_or(graph_->settings().randomSeed), graph_->stations().size());
     nextTravelerId_ = 1;
     stats_ = {};
     transport_ = TransportState::Playing;
@@ -125,7 +132,7 @@ void Sequencer::play() {
         spawn.station = sid;
         emit(spawn);
 
-        trigger(s, id, now_);
+        const NoteContext context = trigger(s, id, now_, NoteContext{});
         chooseRoutes(s);
         if (routeScratch_.empty()) {
             EngineEvent end;
@@ -137,9 +144,9 @@ void Sequencer::play() {
             emit(end);
             continue;
         }
-        travelers_.push_back(Traveler{id, 0, now_, now_});
+        travelers_.push_back(Traveler{id, 0, now_, now_, context});
         depart(travelers_.back(), s, routeScratch_.front(), now_);
-        spawnChildren(s, 1, now_);
+        spawnChildren(s, travelers_.size() - 1, 1, now_);
     }
     stats_.travelerHighWater = std::max(stats_.travelerHighWater, travelers_.size());
 }
@@ -255,7 +262,7 @@ void Sequencer::arrive(TravelerId id, MusicalTick t) {
     arriveEvent.station = sid;
     emit(arriveEvent);
 
-    trigger(s, id, t);
+    travelers_[index].context = trigger(s, id, t, travelers_[index].context);
     chooseRoutes(s);
 
     if (routeScratch_.empty()) { // D24: end of chain
@@ -272,39 +279,64 @@ void Sequencer::arrive(TravelerId id, MusicalTick t) {
     }
 
     depart(travelers_[index], s, routeScratch_.front(), t);
-    spawnChildren(s, 1, t);
+    spawnChildren(s, index, 1, t);
 }
 
-void Sequencer::trigger(StationIndex s, TravelerId traveler, MusicalTick t) {
-    const RuntimeStation& st = graph_->stations()[s];
-    if (st.eventType != StationEventType::Note) return; // CC / Pitch Bend: SF-007
-    if (st.manuallyMuted) return;                        // P2: silent, routing unchanged
+namespace {
 
-    // SF-004 replaces this with full note resolution (Relative, Random Value, Pass, chords).
-    const MidiNote pitch = st.note.absoluteNote;
-
-    if (!notes_.add(st.channel, pitch, t + st.note.duration)) {
-        ++stats_.droppedNotes;
-        EngineEvent d;
-        d.tick = t;
-        d.type = EngineEventType::NoteDropped;
-        d.channel = st.channel;
-        d.note = pitch;
-        d.station = st.id;
-        emit(d);
-        return;
+/// Value draws for Random Value Mode come from the Station's own stream (D10).
+class StationValueDraw final : public IntDraw {
+public:
+    StationValueDraw(RandomStreams& r, std::size_t index, StationId id) : r_(r), index_(index), id_(id) {}
+    std::int64_t draw(std::int64_t lo, std::int64_t hi) noexcept override {
+        return r_.between(index_, id_, RandomPurpose::Value, lo, hi);
     }
-    stats_.noteHighWater = std::max(stats_.noteHighWater, notes_.size());
 
-    EngineEvent on;
-    on.tick = t;
-    on.type = EngineEventType::NoteOn;
-    on.channel = st.channel;
-    on.note = pitch;
-    on.velocity = st.note.velocity;
-    on.station = st.id;
-    on.traveler = traveler;
-    emit(on);
+private:
+    RandomStreams& r_;
+    std::size_t index_;
+    StationId id_;
+};
+
+} // namespace
+
+NoteContext Sequencer::trigger(StationIndex s, TravelerId traveler, MusicalTick t, const NoteContext& incoming) {
+    const RuntimeStation& st = graph_->stations()[s];
+    if (st.eventType != StationEventType::Note) return incoming; // D26: CC/PB never touch note context (SF-007)
+
+    // Resolution always runs, even when silent, so the melodic context and the
+    // random streams do not depend on mute state (P2, D19).
+    StationValueDraw draw{random_, s, st.id};
+    const ResolvedNotes resolved =
+        resolveNotes(st.note, ScaleContext{graph_->settings().root, graph_->settings().scale}, incoming, draw);
+    if (st.manuallyMuted) return resolved.outgoing;
+
+    for (std::size_t i = 0; i < resolved.count; ++i) { // ascending pitch order (D34)
+        const MidiNote pitch = resolved.pitches[i];
+        if (!notes_.add(st.channel, pitch, t + st.note.duration)) {
+            ++stats_.droppedNotes;
+            EngineEvent d;
+            d.tick = t;
+            d.type = EngineEventType::NoteDropped;
+            d.channel = st.channel;
+            d.note = pitch;
+            d.station = st.id;
+            emit(d);
+            continue;
+        }
+        stats_.noteHighWater = std::max(stats_.noteHighWater, notes_.size());
+
+        EngineEvent on;
+        on.tick = t;
+        on.type = EngineEventType::NoteOn;
+        on.channel = st.channel;
+        on.note = pitch;
+        on.velocity = st.note.velocity;
+        on.station = st.id;
+        on.traveler = traveler;
+        emit(on);
+    }
+    return resolved.outgoing;
 }
 
 void Sequencer::chooseRoutes(StationIndex s) {
@@ -343,7 +375,7 @@ void Sequencer::depart(Traveler& traveler, StationIndex from, FlowpointIndex rou
     emit(e);
 }
 
-void Sequencer::spawnChildren(StationIndex from, std::size_t firstRoute, MusicalTick t) {
+void Sequencer::spawnChildren(StationIndex from, std::size_t parentIndex, std::size_t firstRoute, MusicalTick t) {
     // Instant branching: one new Traveler per extra route, in outgoing order (D21).
     // Over the cap, the excess is dropped from the end of outgoing order (D23).
     for (std::size_t r = firstRoute; r < routeScratch_.size(); ++r) {
@@ -356,7 +388,9 @@ void Sequencer::spawnChildren(StationIndex from, std::size_t firstRoute, Musical
             emit(d);
             continue;
         }
-        travelers_.push_back(Traveler{newTravelerId(), 0, t, t});
+        // Children inherit the parent's context after this Station (D19).
+        const NoteContext context = travelers_[parentIndex].context;
+        travelers_.push_back(Traveler{newTravelerId(), 0, t, t, context});
         depart(travelers_.back(), from, routeScratch_[r], t);
     }
 }

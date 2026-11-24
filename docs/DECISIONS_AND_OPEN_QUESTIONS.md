@@ -485,6 +485,18 @@ The spec requires outgoing CC, CC ramps, and Pitch Bend, but nothing defines wha
 - A newer ramp on the same (channel, controller) replaces the older one (last writer wins). Stop freezes ramps where they are. Panic recenters Pitch Bend.
 - CC and Pitch Bend messages are low-priority under output overflow (D23).
 
+## D39 — Relative Pass-through offset (found during SF-004)
+
+[x] Accepted (engineering decision, within the owner's delegation)
+
+The spec says Relative Pass-through "forwards the incoming offset unchanged" but not what the offset is. **Decision:** each Traveler carries, besides the previous resolved note (D19), the **last relative offset applied by a Relative Station** (default 0).
+- A Relative Station applies its own `relativeSteps` and sets the carried offset to that value.
+- A Relative Station with Pass-through applies the **incoming** offset instead of its own, and forwards it unchanged.
+- Absolute, Random Value, Pass, CC and Pitch Bend Stations leave the carried offset unchanged.
+- Instant children copy both the note and the offset.
+
+**Tests.** `Relative mode sets the outgoing offset; Pass-through forwards the incoming one (D39)`; `Non-Relative Stations leave the carried offset unchanged (D39)`.
+
 ---
 
 # Beta feature scope (owner-approved additions, 2026-11-23)
