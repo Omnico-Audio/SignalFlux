@@ -25,6 +25,8 @@ std::string_view typeName(EngineEventType t) noexcept {
         case EngineEventType::NoteOn:            return "NoteOn";
         case EngineEventType::NoteOff:           return "NoteOff";
         case EngineEventType::NoteDropped:       return "NoteDropped";
+        case EngineEventType::ControlChange:     return "CC";
+        case EngineEventType::PitchBend:         return "PB";
     }
     return "Unknown";
 }
@@ -104,6 +106,15 @@ std::string toCanonicalString(const EngineEvent& e) {
             field(out, "ch", e.channel.value());
             field(out, "n", e.note.value());
             field(out, "st", e.station.value());
+            break;
+        case EngineEventType::ControlChange:
+            field(out, "ch", e.channel.value());
+            field(out, "cc", e.controller.value());
+            field(out, "val", e.value);
+            break;
+        case EngineEventType::PitchBend:
+            field(out, "ch", e.channel.value());
+            field(out, "val", e.value);
             break;
     }
     return out;

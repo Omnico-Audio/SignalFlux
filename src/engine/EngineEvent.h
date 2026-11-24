@@ -29,6 +29,8 @@ enum class EngineEventType : std::uint8_t {
     NoteOn,
     NoteOff,
     NoteDropped,       ///< Not sent: active-note cap reached (D23).
+    ControlChange,     ///< D26: `channel`, `controller`, `value` 0–127.
+    PitchBend,         ///< D26: `channel`, `value` −8192…8191.
 };
 
 enum class EndReason : std::uint8_t { None, NoRoute, RouteDeleted, StationDeleted, Terminated };
@@ -43,6 +45,8 @@ struct EngineEvent {
     MidiChannel channel;           ///< Note events only.
     MidiNote note;                 ///< Note events only.
     Velocity velocity;             ///< NoteOn only.
+    CcNumber controller;           ///< ControlChange only.
+    std::int32_t value = 0;        ///< ControlChange / PitchBend.
     EndReason endReason = EndReason::None;
 };
 

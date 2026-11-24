@@ -44,6 +44,8 @@ private:
 } // namespace
 
 Sequencer::Sequencer(IEngineEventSink& sink) : sink_(sink) {
+    velocityOverrides_.reserve(64);
+    probabilityOverrides_.reserve(64);
     travelers_.reserve(limits::kMaxTravelerCap);
     dueScratch_.reserve(limits::kMaxTravelerCap);
     notes_.reset(limits::kMaxActiveNoteCap);
@@ -152,6 +154,9 @@ void Sequencer::play(std::optional<std::uint64_t> seed) {
     std::fill(stationSounding_.begin(), stationSounding_.end(), 0);
     std::fill(terminatorCount_.begin(), terminatorCount_.end(), 0u); // D13: reset on Play
     logicDirty_ = true;
+    ramps_ = {};
+    for (auto& ch : ccValue_) ch.fill(0);
+    pitchBendValue_.fill(0);
     nextTravelerId_ = 1;
     stats_ = {};
     transport_ = TransportState::Playing;
@@ -187,6 +192,7 @@ void Sequencer::requestStop() {
 void Sequencer::performStop() {
     releaseAllNotes();
     silencePendingRepeats();
+    ramps_ = {}; // D26: Stop freezes ramps where they are
     emit(makeEvent(EngineEventType::TransportStop, now_));
     stopAt_.reset();
     transport_ = TransportState::Paused;
@@ -201,6 +207,8 @@ void Sequencer::continuePlayback() {
 void Sequencer::panic() {
     releaseAllNotes();
     silencePendingRepeats();
+    ramps_ = {};
+    pitchBendValue_.fill(0); // the Panic message set recentres Pitch Bend (D14)
     emit(makeEvent(EngineEventType::Panic, now_));
 }
 
@@ -258,6 +266,8 @@ std::optional<MusicalTick> Sequencer::nextEventTick() const noexcept {
     std::optional<MusicalTick> next = notes_.nextDue();
     for (const auto& tr : travelers_)
         if (!next || tr.deadline < *next) next = tr.deadline;
+    for (const auto& r : ramps_)
+        if (r.active && (!next || r.next < *next)) next = r.next;
     return next;
 }
 
@@ -290,6 +300,7 @@ void Sequencer::processTick(MusicalTick t) {
         off.note = r.note;
         emit(off);
     });
+    stepRamps(t); // low-priority controller updates, after Note Offs
 
     // D21 step 3: arrivals and Repeat triggers in ascending TravelerId order.
     dueScratch_.clear();
@@ -321,7 +332,9 @@ bool Sequencer::isSilent(StationIndex s) noexcept {
     const RuntimeStation& st = graph_->stations()[s];
     if (st.manuallyMuted || !logic_.stationEnabled(s)) return true;
     // D7: probability is evaluated once per arrival; 0 and 100 consume no draw.
-    const int p = st.probability.value();
+    int p = st.probability.value();
+    for (const auto& [id, value] : probabilityOverrides_)
+        if (id == st.id) p = value.value(); // D15 MIDI modulation
     if (p == 0) return true;
     if (p == 100) return false;
     return random_.below(s, st.id, RandomPurpose::Probability, 100) >= static_cast<std::uint64_t>(p);
@@ -351,7 +364,9 @@ void Sequencer::enterStation(std::size_t index, StationIndex s, MusicalTick t) {
         travelers_[index].context = resolved.outgoing;
         if (!silent) emitNotes(s, resolved, travelers_[index].id, t);
     }
-    // CC and Pitch Bend Stations (D26) emit in SF-007 and never touch note context.
+    else if (!silent) {
+        emitControl(s, t); // D26: CC / Pitch Bend Stations never touch the note context
+    }
 
     if (st.additionalRepeats > 0) {
         Traveler& tr = travelers_[index];
@@ -372,7 +387,10 @@ void Sequencer::repeatTrigger(std::size_t index, MusicalTick t) {
     Traveler& tr = travelers_[index];
     const StationIndex s = tr.station;
     emit(makeEvent(EngineEventType::TravelerRepeat, t, tr.id, graph_->stations()[s].id));
-    if (!tr.silent) emitNotes(s, tr.repeatNotes, tr.id, t);
+    if (!tr.silent) {
+        if (graph_->stations()[s].eventType == StationEventType::Note) emitNotes(s, tr.repeatNotes, tr.id, t);
+        else emitControl(s, t);
+    }
     if (--tr.repeatsLeft > 0) {
         tr.deadline = t + tr.repeatInterval;
         return;
@@ -382,8 +400,14 @@ void Sequencer::repeatTrigger(std::size_t index, MusicalTick t) {
 
 void Sequencer::emitNotes(StationIndex s, const ResolvedNotes& resolved, TravelerId traveler, MusicalTick t) {
     const RuntimeStation& st = graph_->stations()[s];
+    Velocity velocity = st.note.velocity;
+    for (const auto& [id, value] : velocityOverrides_)
+        if (id == st.id) velocity = value; // D15 MIDI modulation
+    const ScaleContext scale{graph_->settings().root, graph_->settings().scale};
     for (std::size_t i = 0; i < resolved.count; ++i) { // ascending pitch order (D34)
-        const MidiNote pitch = resolved.pitches[i];
+        const MidiNote pitch = transpose_ == 0
+            ? resolved.pitches[i]
+            : *MidiNote::make(foldToMidiRange(stepInScale(resolved.pitches[i].value(), transpose_, scale)));
         if (!notes_.add(st.channel, pitch, t + st.note.duration, st.id)) {
             ++stats_.droppedNotes;
             auto d = makeEvent(EngineEventType::NoteDropped, t, {}, st.id);
@@ -397,7 +421,7 @@ void Sequencer::emitNotes(StationIndex s, const ResolvedNotes& resolved, Travele
         auto on = makeEvent(EngineEventType::NoteOn, t, traveler, st.id);
         on.channel = st.channel;
         on.note = pitch;
-        on.velocity = st.note.velocity;
+        on.velocity = velocity;
         emit(on);
     }
 }
@@ -486,13 +510,106 @@ void Sequencer::spawnChildren(StationIndex from, std::size_t parentIndex, std::s
     }
 }
 
+// ---------------------------------------------------------------------------
+// CC and Pitch Bend Stations (D26)
+// ---------------------------------------------------------------------------
+
+void Sequencer::emitControlValue(MidiChannel ch, bool pitchBend, CcNumber cc, std::int32_t value, StationId st,
+                                 MusicalTick t) {
+    const auto c = static_cast<std::size_t>(ch.value() - 1);
+    auto e = makeEvent(pitchBend ? EngineEventType::PitchBend : EngineEventType::ControlChange, t, {}, st);
+    e.channel = ch;
+    e.controller = cc;
+    e.value = value;
+    if (pitchBend) pitchBendValue_[c] = static_cast<std::int16_t>(value);
+    else ccValue_[c][static_cast<std::size_t>(cc.value())] = static_cast<std::int16_t>(value);
+    emit(e);
+}
+
+void Sequencer::emitControl(StationIndex s, MusicalTick t) {
+    const RuntimeStation& st = graph_->stations()[s];
+    const bool pb = st.eventType == StationEventType::PitchBend;
+    const auto c = static_cast<std::size_t>(st.channel.value() - 1);
+    const CcNumber cc = st.controlChange.controller;
+    const std::int32_t target = pb ? st.pitchBend.target.value() : st.controlChange.target.value();
+    const bool ramp = pb ? st.pitchBend.ramp : st.controlChange.ramp;
+    const std::int32_t current = pb ? pitchBendValue_[c] : ccValue_[c][static_cast<std::size_t>(cc.value())];
+
+    // A newer value or ramp for the same destination replaces any running ramp.
+    Ramp* slot = nullptr;
+    for (auto& r : ramps_)
+        if (r.active && r.channel == st.channel && r.pitchBend == pb && (pb || r.controller == cc)) {
+            r.active = false;
+            slot = &r;
+        }
+
+    if (!ramp || current == target) {
+        if (!ramp) emitControlValue(st.channel, pb, cc, target, st.id, t);
+        return;
+    }
+    if (slot == nullptr)
+        for (auto& r : ramps_)
+            if (!r.active) {
+                slot = &r;
+                break;
+            }
+    if (slot == nullptr) { // overflow policy: jump straight to the target
+        emitControlValue(st.channel, pb, cc, target, st.id, t);
+        return;
+    }
+    *slot = Ramp{true, st.channel, pb, cc, current, target, current,
+                 t, t + st.note.duration, t + MusicalTick{std::min(kRampStepTicks, st.note.duration.value())}, st.id};
+}
+
+void Sequencer::stepRamps(MusicalTick t) {
+    for (auto& r : ramps_) {
+        if (!r.active || r.next != t) continue;
+        std::int32_t v = r.to;
+        if (t < r.end) {
+            const auto span = (r.end - r.start).value();
+            const auto done = (t - r.start).value();
+            v = r.from + static_cast<std::int32_t>(static_cast<std::int64_t>(r.to - r.from) * done / span);
+        }
+        if (v != r.last) {
+            r.last = v;
+            emitControlValue(r.channel, r.pitchBend, r.controller, v, r.station, t);
+        }
+        if (t >= r.end) {
+            r.active = false;
+            continue;
+        }
+        r.next = std::min(r.end, t + MusicalTick{kRampStepTicks});
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MIDI input modulation (D15)
+// ---------------------------------------------------------------------------
+
+void Sequencer::setVelocityOverride(StationId id, std::optional<Velocity> v) {
+    std::erase_if(velocityOverrides_, [id](const auto& e) { return e.first == id; });
+    if (v) velocityOverrides_.emplace_back(id, *v);
+}
+
+void Sequencer::setProbabilityOverride(StationId id, std::optional<ProbabilityPercent> p) {
+    std::erase_if(probabilityOverrides_, [id](const auto& e) { return e.first == id; });
+    if (p) probabilityOverrides_.emplace_back(id, *p);
+}
+
 EngineSnapshot Sequencer::snapshot() const {
     EngineSnapshot snap;
+    snapshotInto(snap);
+    return snap;
+}
+
+void Sequencer::snapshotInto(EngineSnapshot& snap) const {
     snap.now = now_;
     snap.transport = transport_;
     snap.stats = stats_;
-    if (!graph_) return snap;
-    snap.travelers.reserve(travelers_.size());
+    snap.travelers.clear();
+    snap.gates.clear();
+    snap.stations.clear();
+    if (!graph_) return;
     for (const auto& tr : travelers_) {
         TravelerView v;
         v.id = tr.id;
@@ -511,13 +628,11 @@ EngineSnapshot Sequencer::snapshot() const {
     }
     std::sort(snap.travelers.begin(), snap.travelers.end(),
               [](const TravelerView& a, const TravelerView& b) { return a.id < b.id; });
-
     for (std::size_t i = 0; i < logic_.gateCount(); ++i) snap.gates.push_back(GateView{logic_.gateId(i), logic_.output(i)});
     for (std::size_t i = 0; i < graph_->stations().size(); ++i)
         snap.stations.push_back(StationRuntimeView{graph_->stations()[i].id,
                                                    logic_.stationEnabled(static_cast<StationIndex>(i)),
                                                    stationSounding_[i] > 0, terminatorCount_[i]});
-    return snap;
 }
 
 } // namespace signalflux::engine
