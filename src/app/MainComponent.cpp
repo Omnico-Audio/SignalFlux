@@ -13,9 +13,17 @@ MainComponent::MainComponent() {
     addAndMakeVisible(viewport_);
     addAndMakeVisible(inspector_);
 
-    for (auto* b : {&newButton_, &openButton_, &saveButton_, &undoButton_, &redoButton_, &selectTool_, &stationTool_, &gateTool_,
-                    &switchTool_, &playButton_, &stopButton_, &continueButton_, &panicButton_, &seedButton_, &captureButton_, &themeButton_})
+    for (auto* b : {&newButton_, &openButton_, &saveButton_, &undoButton_, &redoButton_, &selectTool_, &stationTool_, &connectTool_,
+                    &gateTool_, &switchTool_, &zoomOut_, &zoomIn_, &playButton_, &stopButton_, &continueButton_, &panicButton_,
+                    &seedButton_, &captureButton_, &themeButton_})
         addAndMakeVisible(b);
+    addAndMakeVisible(hintLabel_);
+    zoomOut_.onClick = [this] { canvas_.zoom(-1); };
+    zoomIn_.onClick = [this] { canvas_.zoom(1); };
+    zoomOut_.setTooltip("Zoom out (or Cmd/Ctrl + mouse wheel)");
+    zoomIn_.setTooltip("Zoom in (or Cmd/Ctrl + mouse wheel)");
+    canvas_.onHintChanged = [this] { hintLabel_.setText(canvas_.hint(), juce::dontSendNotification); };
+    canvas_.onHintChanged();
     addAndMakeVisible(outputBox_);
     addAndMakeVisible(synthToggle_);
     addAndMakeVisible(statusLabel_);
@@ -29,16 +37,21 @@ MainComponent::MainComponent() {
     undoButton_.onClick = [this] { state_.undo(); };
     redoButton_.onClick = [this] { state_.redo(); };
 
-    const std::array<std::pair<juce::TextButton*, Tool>, 4> tools{{{&selectTool_, Tool::Select}, {&stationTool_, Tool::Station},
-                                                                   {&gateTool_, Tool::Gate}, {&switchTool_, Tool::Switch}}};
+    const std::array<std::pair<juce::TextButton*, Tool>, 5> tools{{{&selectTool_, Tool::Select}, {&stationTool_, Tool::Station},
+                                                                   {&connectTool_, Tool::Connect}, {&gateTool_, Tool::Gate},
+                                                                   {&switchTool_, Tool::Switch}}};
     for (const auto& [button, tool] : tools) {
         button->setClickingTogglesState(true);
         button->setRadioGroupId(1);
         button->onClick = [this, t = tool] { canvas_.setTool(t); };
     }
     selectTool_.setToggleState(true, juce::dontSendNotification);
-    selectTool_.setTooltip("Select and drag Stations. Shift-drag from one Station to another to connect them.");
+    canvas_.onToolChanged = [this, tools](Tool t) {
+        for (const auto& [button, tool] : tools) button->setToggleState(tool == t, juce::dontSendNotification);
+    };
+    selectTool_.setTooltip("Select and drag Stations. Double-click an empty cell to add one. Right-click for options.");
     stationTool_.setTooltip("Click an empty cell to add a Station.");
+    connectTool_.setTooltip("Click a Station, then the Station it should send Travelers to.");
 
     playButton_.onClick = [this] { host_.play(state_.seedForPlay()); };
     stopButton_.onClick = [this] { host_.stop(); };
@@ -57,10 +70,20 @@ MainComponent::MainComponent() {
     };
     refreshOutputs();
 
-    if (const auto err = synth_.open(); err.isEmpty()) host_.setSynthQueue(&synth_.queue());
-    else synthToggle_.setTooltip("No audio device: " + err + ". MIDI output is unaffected.");
+    // The synth is on by default so Play makes sound straight away (SF-008).
+    if (const auto err = synth_.open(); err.isEmpty()) {
+        host_.setSynthQueue(&synth_.queue());
+        synth_.setEnabled(state_.prefs().getBoolValue("synthOn", true));
+        synthToggle_.setToggleState(synth_.enabled(), juce::dontSendNotification);
+        synthToggle_.setTooltip("Built-in monitor synth. MIDI output is the same whether it is on or off.");
+    } else {
+        synthToggle_.setTooltip("No audio device: " + err + ". MIDI output is unaffected.");
+    }
     synthToggle_.setEnabled(synth_.available());
-    synthToggle_.onClick = [this] { synth_.setEnabled(synthToggle_.getToggleState()); };
+    synthToggle_.onClick = [this] {
+        synth_.setEnabled(synthToggle_.getToggleState());
+        state_.prefs().setValue("synthOn", synthToggle_.getToggleState());
+    };
 
     for (int i = 0; i < 8; ++i) {
         auto& b = sceneButtons_[static_cast<std::size_t>(i)];
@@ -88,6 +111,14 @@ MainComponent::MainComponent() {
     } else if (auto example = examples::make("first-loop")) {
         state_.edit([&example](ProjectDocument& d) { d = *example; return true; }, "Open example");
     }
+    juce::MessageManager::callAsync([safe = juce::Component::SafePointer<MainComponent>(this)] {
+        if (safe != nullptr) safe->scrollToContent();
+    });
+}
+
+void MainComponent::scrollToContent() {
+    const auto c = canvas_.centreOfContent();
+    viewport_.setViewPosition(std::max(0, c.x - viewport_.getWidth() / 3), std::max(0, c.y - viewport_.getHeight() / 3));
 }
 
 MainComponent::~MainComponent() {
@@ -117,6 +148,14 @@ void MainComponent::styleControls() {
     lf.setColour(juce::Slider::textBoxTextColourId, th.text);
     lf.setColour(juce::Slider::textBoxBackgroundColourId, th.canvas);
     lf.setColour(juce::ScrollBar::thumbColourId, th.panelBorder);
+    lf.setColour(juce::PopupMenu::backgroundColourId, th.panel);
+    lf.setColour(juce::PopupMenu::textColourId, th.text);
+    lf.setColour(juce::PopupMenu::headerTextColourId, th.text);
+    lf.setColour(juce::PopupMenu::highlightedBackgroundColourId, th.selection.withAlpha(0.35f));
+    lf.setColour(juce::PopupMenu::highlightedTextColourId, th.text);
+    lf.setColour(juce::AlertWindow::backgroundColourId, th.panel);
+    lf.setColour(juce::AlertWindow::textColourId, th.text);
+    lf.setColour(juce::AlertWindow::outlineColourId, th.panelBorder);
     themeButton_.setButtonText(th.dark ? "Light" : "Dark");
     sendLookAndFeelChange();
     repaint();
@@ -281,32 +320,40 @@ void MainComponent::paint(juce::Graphics& g) { g.fillAll(state_.theme().panel); 
 
 void MainComponent::resized() {
     auto r = getLocalBounds();
-    auto bar = r.removeFromTop(44).reduced(8, 6);
-    auto place = [&bar](juce::Component& c, int w) {
-        c.setBounds(bar.removeFromLeft(w));
+    // Two toolbar rows so nothing is cut off on narrower windows.
+    auto row1 = r.removeFromTop(40).reduced(8, 5);
+    auto row2 = r.removeFromTop(36).reduced(8, 2).withTrimmedBottom(4);
+    auto place = [](juce::Rectangle<int>& bar, juce::Component& c, int w) {
+        c.setBounds(bar.removeFromLeft(std::min(w, bar.getWidth())));
         bar.removeFromLeft(4);
     };
-    for (auto* b : {&newButton_, &openButton_, &saveButton_}) place(*b, 56);
-    bar.removeFromLeft(8);
-    place(undoButton_, 56);
-    place(redoButton_, 56);
-    bar.removeFromLeft(8);
-    for (auto* b : {&selectTool_, &stationTool_, &gateTool_, &switchTool_}) place(*b, 64);
-    bar.removeFromLeft(8);
-    for (auto* b : {&playButton_, &stopButton_, &continueButton_, &panicButton_}) place(*b, 70);
-    bar.removeFromLeft(8);
-    place(seedButton_, 56);
-    place(captureButton_, 70);
-    place(outputBox_, 240);
-    place(synthToggle_, 70);
-    place(themeButton_, 56);
+    for (auto* b : {&newButton_, &openButton_, &saveButton_}) place(row1, *b, 60);
+    row1.removeFromLeft(10);
+    place(row1, undoButton_, 60);
+    place(row1, redoButton_, 60);
+    row1.removeFromLeft(10);
+    for (auto* b : {&selectTool_, &stationTool_, &connectTool_, &gateTool_, &switchTool_}) place(row1, *b, 72);
+    row1.removeFromLeft(10);
+    place(row1, zoomOut_, 30);
+    place(row1, zoomIn_, 30);
+    themeButton_.setBounds(row1.removeFromRight(64));
 
-    auto scenes = r.removeFromBottom(40).reduced(8, 6);
-    statusLabel_.setBounds(scenes.removeFromRight(420));
+    for (auto* b : {&playButton_, &stopButton_, &continueButton_, &panicButton_}) place(row2, *b, 76);
+    row2.removeFromLeft(10);
+    place(row2, synthToggle_, 80);
+    place(row2, outputBox_, 280);
+    row2.removeFromLeft(10);
+    place(row2, seedButton_, 60);
+    place(row2, captureButton_, 76);
+
+    auto bottom = r.removeFromBottom(40).reduced(8, 6);
+    statusLabel_.setBounds(bottom.removeFromRight(std::min(440, bottom.getWidth() / 2)));
+    const int sceneWidth = std::max(48, std::min(80, (bottom.getWidth() - 28) / 8));
     for (auto& b : sceneButtons_) {
-        b.setBounds(scenes.removeFromLeft(80));
-        scenes.removeFromLeft(4);
+        b.setBounds(bottom.removeFromLeft(sceneWidth));
+        bottom.removeFromLeft(4);
     }
+    hintLabel_.setBounds(r.removeFromBottom(24).reduced(10, 0));
     inspector_.setBounds(r.removeFromRight(340));
     viewport_.setBounds(r);
 }

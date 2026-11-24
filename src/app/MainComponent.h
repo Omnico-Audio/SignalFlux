@@ -1,7 +1,8 @@
 // SignalFlux — main window layout (task SF-009).
 // Copyright (C) 2026 The SignalFlux contributors. Licensed under the GNU AGPLv3.
 //
-//  toolbar: file, undo/redo, tools, transport, seed, Capture, MIDI out, synth, theme
+//  toolbar row 1: file, undo/redo, tools, zoom
+//  toolbar row 2: transport, seed, Capture, MIDI out, synth, theme
 //  grid canvas (scrollable)  |  inspector
 //  Scenes bar (8 slots: click recalls, Shift-click stores)  |  status
 //
@@ -45,6 +46,7 @@ private:
     void exportCapture();
     void sceneClicked(int slot, bool store);
     void showMessage(const juce::String& title, const juce::String& text);
+    void scrollToContent();
 
     SynthOutput synth_;
     EngineHost host_;
@@ -54,7 +56,9 @@ private:
     Inspector inspector_{state_};
 
     juce::TextButton newButton_{"New"}, openButton_{"Open"}, saveButton_{"Save"}, undoButton_{"Undo"}, redoButton_{"Redo"};
-    juce::TextButton selectTool_{"Select"}, stationTool_{"Station"}, gateTool_{"Gate"}, switchTool_{"Switch"};
+    juce::TextButton selectTool_{"Select"}, stationTool_{"Station"}, connectTool_{"Connect"}, gateTool_{"Gate"}, switchTool_{"Switch"};
+    juce::TextButton zoomOut_{"-"}, zoomIn_{"+"};
+    juce::Label hintLabel_;
     juce::TextButton playButton_{"Play"}, stopButton_{"Stop"}, continueButton_{"Continue"}, panicButton_{"Panic"};
     juce::TextButton seedButton_{"Seed"}, captureButton_{"Capture"}, themeButton_{"Light"};
     juce::ComboBox outputBox_;

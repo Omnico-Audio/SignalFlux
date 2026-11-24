@@ -451,6 +451,19 @@ void Inspector::buildProject() {
                              }));
     props.add(new ButtonProp("MIDI Learn", "Learn tempo", [&st] { st.host().armLearn({MappingTarget::Tempo, std::nullopt, std::nullopt}); }));
     props.add(new ButtonProp("MIDI Learn", "Learn transpose", [&st] { st.host().armLearn({MappingTarget::GlobalTranspose, std::nullopt, std::nullopt}); }));
+    props.add(new NumberProp("Plot width (cells)", 4, 128, [&st] { return st.doc().plots.front().width; },
+                             [set](double v) { set("Plot width", [v](ProjectDocument& d) {
+                                 // Never shrink past a Station: clamp to the farthest one.
+                                 int need = 1;
+                                 for (const auto& s : d.plots.front().stations) need = std::max(need, s.position.x + 1);
+                                 d.plots.front().width = std::max(static_cast<int>(v), need);
+                             }); }));
+    props.add(new NumberProp("Plot height (cells)", 4, 128, [&st] { return st.doc().plots.front().height; },
+                             [set](double v) { set("Plot height", [v](ProjectDocument& d) {
+                                 int need = 1;
+                                 for (const auto& s : d.plots.front().stations) need = std::max(need, s.position.y + 1);
+                                 d.plots.front().height = std::max(static_cast<int>(v), need);
+                             }); }));
     props.add(new ChoiceProp("Grid cell", kNoteValues, [&st] { return noteValueIndex(st.doc().settings.gridSpacing.ticks()); },
                              [set](int i) { set("Grid spacing", [i](ProjectDocument& d) { d.settings.gridSpacing = *GridSpacing::make(kNoteTicks[i]); }); }));
     props.add(new ChoiceProp("Root", {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"},
