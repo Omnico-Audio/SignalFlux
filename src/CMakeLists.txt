@@ -25,6 +25,13 @@ add_library(signalflux_core STATIC
     engine/Sequencer.cpp
     engine/EventLog.h
     engine/EventLog.cpp
+    midi/MidiBytes.h
+    midi/MidiBytes.cpp
+    midi/PlaybackClock.h
+    midi/PlaybackClock.cpp
+    midi/SpscQueue.h
+    midi/MidiInputRouter.h
+    midi/MidiInputRouter.cpp
 )
 add_library(SignalFlux::core ALIAS signalflux_core)
 target_include_directories(signalflux_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -10,7 +10,9 @@ juce_add_gui_app(SignalFlux
 target_sources(SignalFlux PRIVATE
     Main.cpp
     MainComponent.h
-    MainComponent.cpp)
+    MainComponent.cpp
+    EngineHost.h
+    EngineHost.cpp)
 
 target_compile_definitions(SignalFlux PRIVATE
     JUCE_WEB_BROWSER=0
@@ -22,6 +24,7 @@ target_compile_definitions(SignalFlux PRIVATE
 target_link_libraries(SignalFlux
     PRIVATE
         SignalFlux::core
+        SignalFlux::persistence
         juce::juce_gui_basics
         juce::juce_audio_devices
     PUBLIC

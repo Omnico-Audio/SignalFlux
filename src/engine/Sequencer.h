@@ -37,6 +37,7 @@
 #include "engine/Random.h"
 #include "engine/RuntimeGraph.h"
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <vector>
@@ -112,6 +113,14 @@ public:
     void setMidiNoteHeld(MidiChannel channel, MidiNote note, bool held);
     void setMidiControl(MidiChannel channel, CcNumber controller, CcValue value);
 
+    // MIDI input modulation (D15). Applied at now(); runtime only, never saved.
+    /// Global transpose in scale steps, applied to emitted notes only (the
+    /// carried melodic context is unchanged).
+    void setTranspose(std::int32_t scaleSteps) noexcept { transpose_ = scaleSteps; }
+    [[nodiscard]] std::int32_t transpose() const noexcept { return transpose_; }
+    void setVelocityOverride(StationId id, std::optional<Velocity> v);
+    void setProbabilityOverride(StationId id, std::optional<ProbabilityPercent> p);
+
     /// Processes every event with tick < horizon, then sets now() = horizon.
     /// Does nothing unless playing. `horizon` is on the engine's own tick
     /// timeline; the host derives it from its clock (SF-007).
@@ -124,6 +133,9 @@ public:
     /// Seed used by the current (or last) Play (D29 seed history).
     [[nodiscard]] std::uint64_t currentSeed() const noexcept { return random_.seed(); }
     [[nodiscard]] EngineSnapshot snapshot() const;
+    /// Fills `out`, reusing its storage: after warm-up this does not allocate,
+    /// so a real-time host can publish snapshots from the engine thread.
+    void snapshotInto(EngineSnapshot& out) const;
 
 private:
     enum class Phase : std::uint8_t { Travelling, Dwelling };
@@ -158,6 +170,9 @@ private:
     void releaseAllNotes();
     void silencePendingRepeats() noexcept;
     bool runLogicStep() noexcept;
+    void emitControl(StationIndex s, MusicalTick t);
+    void stepRamps(MusicalTick t);
+    void emitControlValue(MidiChannel ch, bool pitchBend, CcNumber cc, std::int32_t value, StationId st, MusicalTick t);
     void noteReleased(StationId station) noexcept;
     [[nodiscard]] std::optional<MusicalTick> nextEventTick() const noexcept;
     [[nodiscard]] std::size_t travelerCap() const noexcept;
@@ -181,6 +196,26 @@ private:
     std::vector<std::uint8_t> stationActive_;       // scratch for logic steps
     std::vector<std::uint32_t> terminatorCount_;    // per Station index (D13)
     bool logicDirty_ = true;
+
+    // CC / Pitch Bend ramps (D26): bounded, last writer per (channel, kind, controller) wins.
+    struct Ramp {
+        bool active = false;
+        MidiChannel channel;
+        bool pitchBend = false;
+        CcNumber controller;
+        std::int32_t from = 0, to = 0, last = 0;
+        MusicalTick start, end, next;
+        StationId station;
+    };
+    static constexpr std::size_t kMaxRamps = 64;
+    static constexpr std::int64_t kRampStepTicks = 10; // D26: 96 steps per quarter
+    std::array<Ramp, kMaxRamps> ramps_{};
+    std::array<std::array<std::int16_t, 128>, 16> ccValue_{};  // last value sent per channel/controller
+    std::array<std::int16_t, 16> pitchBendValue_{};            // last Pitch Bend per channel (0 = centre)
+
+    std::int32_t transpose_ = 0;
+    std::vector<std::pair<StationId, Velocity>> velocityOverrides_;
+    std::vector<std::pair<StationId, ProbabilityPercent>> probabilityOverrides_;
     std::uint32_t nextTravelerId_ = 1;
     EngineStats stats_;
 };

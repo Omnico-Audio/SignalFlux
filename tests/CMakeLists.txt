@@ -13,8 +13,10 @@ add_executable(signalflux_tests
     unit/BranchProbabilityRepeatTests.cpp
     unit/LogicTerminatorTests.cpp
     unit/PersistenceTests.cpp
+    unit/MidiTests.cpp
 )
-target_link_libraries(signalflux_tests PRIVATE SignalFlux::core SignalFlux::persistence Catch2::Catch2WithMain)
+find_package(Threads REQUIRED)
+target_link_libraries(signalflux_tests PRIVATE SignalFlux::core SignalFlux::persistence Catch2::Catch2WithMain Threads::Threads)
 signalflux_apply_strict_warnings(signalflux_tests)
 target_compile_definitions(signalflux_tests PRIVATE
     SIGNALFLUX_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/golden"
