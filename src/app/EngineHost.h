@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "app/SynthOutput.h"
 #include "engine/Sequencer.h"
 #include "midi/MidiInputRouter.h"
 #include "midi/PlaybackClock.h"
@@ -81,6 +82,10 @@ public:
     /// Capture buffer, synth bridge). Bounded: if the UI falls behind, the oldest
     /// undelivered events are dropped and counted.
     void drainEvents(std::vector<engine::EngineEvent>& out);
+
+    /// Feeds the optional synth (SF-008) from the engine thread. Pass nullptr to detach.
+    /// The synth only listens: MIDI output is identical with or without it.
+    void setSynthQueue(SynthQueue* queue) noexcept { synthQueue_.store(queue); }
 
     [[nodiscard]] bool outputAvailable() const noexcept { return outputAvailable_.load(); }
     [[nodiscard]] std::uint64_t droppedInputMessages() const noexcept { return droppedInput_.load(); }
@@ -165,6 +170,7 @@ private:
     std::atomic<bool> outputAvailable_{false};
     std::atomic<std::uint64_t> droppedInput_{0}, droppedEvents_{0};
     std::atomic<std::int32_t> tempoMilli_{MilliBpm::kDefault};
+    std::atomic<SynthQueue*> synthQueue_{nullptr};
 
     // Message-thread state
     juce::String outputId_;

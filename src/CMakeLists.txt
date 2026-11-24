@@ -50,6 +50,13 @@ target_include_directories(signalflux_persistence SYSTEM PRIVATE
     $<TARGET_PROPERTY:nlohmann_json::nlohmann_json,INTERFACE_INCLUDE_DIRECTORIES>)
 signalflux_apply_strict_warnings(signalflux_persistence)
 
+# signalflux_audio: optional monitoring synth (SF-008). No JUCE; fed by the app's audio callback.
+add_library(signalflux_audio STATIC audio/Synth.h audio/Synth.cpp)
+add_library(SignalFlux::audio ALIAS signalflux_audio)
+target_include_directories(signalflux_audio PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_features(signalflux_audio PUBLIC cxx_std_20)
+signalflux_apply_strict_warnings(signalflux_audio)
+
 if(SIGNALFLUX_BUILD_RENDER)
     add_subdirectory(render)
 endif()

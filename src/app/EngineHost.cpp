@@ -191,6 +191,19 @@ void EngineHost::onEngineEvent(const engine::EngineEvent& e) noexcept {
     const auto n = midi::encode(e, sppBeforeStart_, msgs);
     for (std::size_t i = 0; i < n; ++i) send(msgs[i].bytes.data(), msgs[i].size);
     if (!events_.push(e)) droppedEvents_.fetch_add(1);
+
+    // The synth hears exactly what MIDI output sends (same event stream).
+    if (auto* q = synthQueue_.load(std::memory_order_relaxed)) {
+        using T = engine::EngineEventType;
+        SynthEvent s;
+        if (e.type == T::NoteOn) s = {SynthEvent::Kind::NoteOn, static_cast<std::uint8_t>(e.channel.value()),
+                                      static_cast<std::uint8_t>(e.note.value()), static_cast<std::uint8_t>(e.velocity.value())};
+        else if (e.type == T::NoteOff) s = {SynthEvent::Kind::NoteOff, static_cast<std::uint8_t>(e.channel.value()),
+                                            static_cast<std::uint8_t>(e.note.value()), 0};
+        else if (e.type == T::Panic || e.type == T::TransportStop) s = {SynthEvent::Kind::AllOff, 1, 0, 0};
+        else return;
+        (void)q->push(s); // full: dropped; monitoring only
+    }
 }
 
 void EngineHost::apply(Command& c, std::int64_t nowUs) {
