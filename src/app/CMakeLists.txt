@@ -14,7 +14,14 @@ target_sources(SignalFlux PRIVATE
     EngineHost.h
     EngineHost.cpp
     SynthOutput.h
-    SynthOutput.cpp)
+    SynthOutput.cpp
+    Theme.h
+    AppState.h
+    AppState.cpp
+    GridCanvas.h
+    GridCanvas.cpp
+    Inspector.h
+    Inspector.cpp)
 
 target_compile_definitions(SignalFlux PRIVATE
     JUCE_WEB_BROWSER=0
@@ -29,6 +36,8 @@ target_link_libraries(SignalFlux
         SignalFlux::persistence
         SignalFlux::audio
         juce::juce_gui_basics
+        juce::juce_gui_extra
+        juce::juce_data_structures
         juce::juce_audio_devices
     PUBLIC
         juce::juce_recommended_config_flags

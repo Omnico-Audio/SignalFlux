@@ -159,6 +159,11 @@ bool LogicEngine::step(const std::vector<std::uint8_t>& stationActive, const Mid
         for (const auto& in : node.inputs) trueCount += inputValue(in, stationActive, midi) ? 1u : 0u;
         const std::size_t n = node.inputs.size();
         bool v = false;
+        if (n == 0) { // unconnected gate: stays on, mutes nothing
+            changed = changed || out_[g] != 1;
+            out_[g] = 1;
+            continue;
+        }
         switch (node.type) {
             case GateType::And:  v = trueCount == n; break;
             case GateType::Or:   v = trueCount > 0; break;

@@ -56,6 +56,7 @@ enum class IssueCode : std::uint16_t {
     PassOverridesPassThrough,
     PassThroughIgnoredOutsideRelative,
     ForceScaleIgnoredOutsideAbsolute,
+    GateUnconnected,
 };
 
 struct ValidationIssue {
