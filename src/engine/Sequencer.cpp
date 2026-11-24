@@ -107,10 +107,22 @@ ValidationReport Sequencer::setDocument(const ProjectDocument& doc) {
             }
         roundRobin_ = std::move(remapped);
         random_.remap(newToOld);
+        std::vector<std::int32_t> sounding(compiled->stations().size(), 0);
+        std::vector<std::uint32_t> terminators(compiled->stations().size(), 0);
+        for (std::size_t i = 0; i < newToOld.size(); ++i)
+            if (newToOld[i] >= 0) {
+                sounding[i] = stationSounding_[static_cast<std::size_t>(newToOld[i])];
+                terminators[i] = terminatorCount_[static_cast<std::size_t>(newToOld[i])];
+            }
+        stationSounding_ = std::move(sounding);
+        terminatorCount_ = std::move(terminators);
     } else {
         roundRobin_.assign(compiled->stations().size(), 0);
         random_.reset(compiled->settings().randomSeed, compiled->stations().size());
+        stationSounding_.assign(compiled->stations().size(), 0);
+        terminatorCount_.assign(compiled->stations().size(), 0);
     }
+    stationActive_.assign(compiled->stations().size(), 0);
 
     std::size_t maxOut = 0;
     for (const auto& s : compiled->stations()) maxOut = std::max(maxOut, s.outgoing.size());
@@ -118,6 +130,8 @@ ValidationReport Sequencer::setDocument(const ProjectDocument& doc) {
 
     graph_ = std::move(compiled);
     notes_.setCapacity(graph_->settings().activeNoteCap);
+    logic_.compile(doc.plots.front(), *graph_);
+    logicDirty_ = runLogicStep();
     return report;
 }
 
@@ -135,6 +149,9 @@ void Sequencer::play(std::optional<std::uint64_t> seed) {
     std::fill(roundRobin_.begin(), roundRobin_.end(), 0u);
     notes_.reset(graph_->settings().activeNoteCap);
     random_.reset(seed.value_or(graph_->settings().randomSeed), graph_->stations().size());
+    std::fill(stationSounding_.begin(), stationSounding_.end(), 0);
+    std::fill(terminatorCount_.begin(), terminatorCount_.end(), 0u); // D13: reset on Play
+    logicDirty_ = true;
     nextTravelerId_ = 1;
     stats_ = {};
     transport_ = TransportState::Playing;
@@ -158,6 +175,7 @@ void Sequencer::play(std::optional<std::uint64_t> seed) {
         enterStation(travelers_.size() - 1, s, now_);
         stats_.travelerHighWater = std::max(stats_.travelerHighWater, travelers_.size());
     }
+    if (logicDirty_) logicDirty_ = runLogicStep(); // D21 step 4 for tick 0
 }
 
 void Sequencer::requestStop() {
@@ -200,6 +218,36 @@ void Sequencer::releaseAllNotes() {
         off.note = r.note;
         emit(off);
     });
+    if (std::any_of(stationSounding_.begin(), stationSounding_.end(), [](std::int32_t c) { return c != 0; })) {
+        std::fill(stationSounding_.begin(), stationSounding_.end(), 0);
+        logicDirty_ = runLogicStep(); // Station Active signals all dropped
+    }
+}
+
+void Sequencer::noteReleased(StationId station) noexcept {
+    if (!graph_) return;
+    if (const auto s = graph_->stationIndex(station); s && stationSounding_[*s] > 0)
+        if (--stationSounding_[*s] == 0) logicDirty_ = true;
+}
+
+bool Sequencer::runLogicStep() noexcept {
+    for (std::size_t i = 0; i < stationSounding_.size(); ++i) stationActive_[i] = stationSounding_[i] > 0 ? 1 : 0;
+    return logic_.step(stationActive_, midiIn_);
+}
+
+void Sequencer::setSwitch(SwitchId id, bool on) {
+    if (logic_.setSwitch(id, on)) logicDirty_ = runLogicStep();
+}
+
+void Sequencer::setMidiNoteHeld(MidiChannel channel, MidiNote note, bool held) {
+    midiIn_.noteHeld[static_cast<std::size_t>(channel.value() - 1)][static_cast<std::size_t>(note.value())] = held ? 1 : 0;
+    logicDirty_ = runLogicStep();
+}
+
+void Sequencer::setMidiControl(MidiChannel channel, CcNumber controller, CcValue value) {
+    midiIn_.ccValue[static_cast<std::size_t>(channel.value() - 1)][static_cast<std::size_t>(controller.value())] =
+        static_cast<std::uint8_t>(value.value());
+    logicDirty_ = runLogicStep();
 }
 
 // ---------------------------------------------------------------------------
@@ -235,6 +283,8 @@ void Sequencer::processUntil(MusicalTick horizon) {
 void Sequencer::processTick(MusicalTick t) {
     // D21 step 2: Note Offs before Note Ons.
     notes_.releaseDue(t, [this, t](const ActiveNoteRegistry::Release& r) {
+        noteReleased(r.station);
+        if (!r.sendNoteOff) return; // D22: another instance of this pitch still sounds
         auto off = makeEvent(EngineEventType::NoteOff, t);
         off.channel = r.channel;
         off.note = r.note;
@@ -262,11 +312,14 @@ void Sequencer::processTick(MusicalTick t) {
     }
 
     stats_.travelerHighWater = std::max(stats_.travelerHighWater, travelers_.size());
+
+    // D21 step 4: logic sees this tick's signals from the next tick on.
+    if (logicDirty_) logicDirty_ = runLogicStep();
 }
 
 bool Sequencer::isSilent(StationIndex s) noexcept {
     const RuntimeStation& st = graph_->stations()[s];
-    if (st.manuallyMuted) return true;
+    if (st.manuallyMuted || !logic_.stationEnabled(s)) return true;
     // D7: probability is evaluated once per arrival; 0 and 100 consume no draw.
     const int p = st.probability.value();
     if (p == 0) return true;
@@ -276,6 +329,16 @@ bool Sequencer::isSilent(StationIndex s) noexcept {
 
 void Sequencer::enterStation(std::size_t index, StationIndex s, MusicalTick t) {
     const RuntimeStation& st = graph_->stations()[s];
+
+    // D13: a Terminator counts every Traveler entering the Station, silent or
+    // not. Arrivals beyond the limit end here: no trigger, no departure.
+    if (st.terminatorLimit) {
+        if (++terminatorCount_[s] > *st.terminatorLimit) {
+            endTraveler(index, st.id, EndReason::Terminated, t);
+            return;
+        }
+    }
+
     const bool silent = isSilent(s);
 
     ResolvedNotes resolved;
@@ -321,7 +384,7 @@ void Sequencer::emitNotes(StationIndex s, const ResolvedNotes& resolved, Travele
     const RuntimeStation& st = graph_->stations()[s];
     for (std::size_t i = 0; i < resolved.count; ++i) { // ascending pitch order (D34)
         const MidiNote pitch = resolved.pitches[i];
-        if (!notes_.add(st.channel, pitch, t + st.note.duration)) {
+        if (!notes_.add(st.channel, pitch, t + st.note.duration, st.id)) {
             ++stats_.droppedNotes;
             auto d = makeEvent(EngineEventType::NoteDropped, t, {}, st.id);
             d.channel = st.channel;
@@ -330,6 +393,7 @@ void Sequencer::emitNotes(StationIndex s, const ResolvedNotes& resolved, Travele
             continue;
         }
         stats_.noteHighWater = std::max(stats_.noteHighWater, notes_.size());
+        if (stationSounding_[s]++ == 0) logicDirty_ = true;
         auto on = makeEvent(EngineEventType::NoteOn, t, traveler, st.id);
         on.channel = st.channel;
         on.note = pitch;
@@ -447,6 +511,12 @@ EngineSnapshot Sequencer::snapshot() const {
     }
     std::sort(snap.travelers.begin(), snap.travelers.end(),
               [](const TravelerView& a, const TravelerView& b) { return a.id < b.id; });
+
+    for (std::size_t i = 0; i < logic_.gateCount(); ++i) snap.gates.push_back(GateView{logic_.gateId(i), logic_.output(i)});
+    for (std::size_t i = 0; i < graph_->stations().size(); ++i)
+        snap.stations.push_back(StationRuntimeView{graph_->stations()[i].id,
+                                                   logic_.stationEnabled(static_cast<StationIndex>(i)),
+                                                   stationSounding_[i] > 0, terminatorCount_[i]});
     return snap;
 }
 

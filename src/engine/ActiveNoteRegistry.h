@@ -26,6 +26,8 @@ public:
     struct Release {
         MidiChannel channel;
         MidiNote note;
+        StationId station;       ///< Station that started this instance (releaseDue only).
+        bool sendNoteOff = true; ///< False while other instances of the same pitch still sound (D22).
     };
 
     /// Clears all state and sets the cap to `capacity` simultaneous notes (D23).
@@ -39,14 +41,15 @@ public:
 
     /// Registers a note that ends at `offTick`. Returns false if the cap is
     /// reached; the caller must then not send the Note On (D23).
-    [[nodiscard]] bool add(MidiChannel channel, MidiNote note, MusicalTick offTick) noexcept;
+    [[nodiscard]] bool add(MidiChannel channel, MidiNote note, MusicalTick offTick, StationId station = {}) noexcept;
 
     /// Earliest pending Note Off, if any.
     [[nodiscard]] std::optional<MusicalTick> nextDue() const noexcept;
 
     /// Removes every instance due at or before `tick`, in (offTick, insertion)
-    /// order, and calls `onRelease` for each (channel, pitch) whose count
-    /// reaches zero, i.e. for each Note Off that must actually be sent.
+    /// order, and calls `onRelease` for each instance. `sendNoteOff` is true only
+    /// when the (channel, pitch) count reaches zero, i.e. when a Note Off must
+    /// actually be sent.
     template <typename F>
     void releaseDue(MusicalTick tick, F&& onRelease) noexcept;
 
@@ -67,6 +70,7 @@ private:
         MidiNote note;
         MusicalTick offTick;
         std::uint64_t sequence = 0;
+        StationId station;
     };
 
     static constexpr std::size_t slot(MidiChannel c, MidiNote n) noexcept {
@@ -97,7 +101,8 @@ void ActiveNoteRegistry::releaseDue(MusicalTick tick, F&& onRelease) noexcept {
         const Entry e = entries_[best];
         entries_[best] = entries_.back();
         entries_.pop_back();
-        if (--counts_[slot(e.channel, e.note)] == 0) onRelease(Release{e.channel, e.note});
+        const bool last = --counts_[slot(e.channel, e.note)] == 0;
+        onRelease(Release{e.channel, e.note, e.station, last});
     }
 }
 
@@ -110,7 +115,7 @@ void ActiveNoteRegistry::releaseAll(F&& onRelease) noexcept {
             auto& count = counts_[slot(c, note)];
             if (count > 0) {
                 count = 0;
-                onRelease(Release{c, note});
+                onRelease(Release{c, note, StationId{}, true});
             }
         }
     entries_.clear();

@@ -35,6 +35,7 @@ std::string_view reasonName(EndReason r) noexcept {
         case EndReason::NoRoute:        return "no-route";
         case EndReason::RouteDeleted:   return "route-deleted";
         case EndReason::StationDeleted: return "station-deleted";
+        case EndReason::Terminated:     return "terminated";
     }
     return "unknown";
 }

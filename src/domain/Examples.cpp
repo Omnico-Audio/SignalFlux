@@ -144,6 +144,42 @@ ProjectDocument branches() {
     return doc;
 }
 
+/// Logic in action (D12, D13): a Switch gates one Station, a Station Active
+/// signal gates another, an XOR with feedback blinks a third, and a
+/// Terminator closes a side branch after four passes.
+ProjectDocument gatekeeper() {
+    Builder b{"Gatekeeper"};
+    b.station(1, {0, 0}, 60, true);
+    b.station(2, {2, 0}, 64);
+    b.station(3, {2, 2}, 67);
+    b.station(4, {0, 2}, 71);
+    b.station(5, {4, 0}, 76);
+    b.route(1, 1, 2);
+    b.route(2, 2, 3);
+    b.route(3, 3, 4);
+    b.route(4, 4, 1);
+    b.route(5, 2, 5);
+    b.route(6, 5, 2);
+    b.get(2).branchMode = BranchMode::Instant;
+    b.get(5).terminatorLimit = 4;
+    b.get(1).note.duration = MusicalTick{4000}; // still sounding when the Traveler reaches Station 3
+    ProjectDocument doc = b.done();
+    auto& plot = doc.plots.front();
+    plot.switches.push_back(Switch{SwitchId{1}, "Bass", {6, 6}, false});
+    auto gate = [](std::uint32_t id, GateType type, std::vector<GateInput> in, std::vector<std::uint32_t> targets) {
+        Gate g;
+        g.id = GateId{id};
+        g.type = type;
+        g.inputs = std::move(in);
+        for (const auto t : targets) g.targets.push_back(StationId{t});
+        return g;
+    };
+    plot.gates.push_back(gate(1, GateType::Or, {SwitchInput{SwitchId{1}}}, {4}));               // Switch gates 4
+    plot.gates.push_back(gate(2, GateType::Or, {StationActiveInput{StationId{1}}}, {3}));        // 3 only while 1 sounds
+    plot.gates.push_back(gate(3, GateType::Xor, {GateOutputInput{GateId{3}}, StationActiveInput{StationId{2}}}, {5})); // blinker
+    return doc;
+}
+
 /// A bounded random walk over A minor pentatonic (D10 Walk mode).
 ProjectDocument wanderer() {
     Builder b{"Wanderer"};
@@ -179,6 +215,7 @@ constexpr Entry kExamples[] = {
     {"first-loop", firstLoop},
     {"sequential-hub", sequentialHub},
     {"branches", branches},
+    {"gatekeeper", gatekeeper},
     {"instant-bloom", instantBloom},
     {"polyrhythm", polyrhythm},
     {"wanderer", wanderer},
