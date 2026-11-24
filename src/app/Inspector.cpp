@@ -257,6 +257,10 @@ void Inspector::buildStation(StationId id) {
     }));
     note.add(new ChoiceProp("Length", kNoteValues, [get] { return noteValueIndex(get().note.duration.value()); },
                             [set](int i) { set("Length", [i](Station& s) { s.note.duration = MusicalTick{kNoteTicks[i]}; }); }));
+    note.add(new NumberProp("Humanize velocity (+/-)", 0, 64, [get] { return get().humanize.velocityRange; },
+                            [set](double v) { set("Humanize velocity", [v](Station& s) { s.humanize.velocityRange = static_cast<int>(v); }); }));
+    note.add(new NumberProp("Humanize delay (ticks)", 0, 480, [get] { return static_cast<double>(get().humanize.maxDelay.value()); },
+                            [set](double v) { set("Humanize delay", [v](Station& s) { s.humanize.maxDelay = MusicalTick{static_cast<std::int64_t>(v)}; }); }));
 
     flow.add(new ChoiceProp("Branching", {"Sequential", "Random (weighted)", "Instant (all)"}, [get] { return static_cast<int>(get().branchMode); },
                             [set](int i) { set("Branching", [i](Station& s) { s.branchMode = static_cast<BranchMode>(i); }); }));
@@ -460,6 +464,10 @@ void Inspector::buildProject() {
                                  return p ? static_cast<int>(*p) : 0;
                              },
                              [set](int i) { set("Scale", [i](ProjectDocument& d) { d.settings.scale = maskFor(static_cast<ScalePreset>(i)); }); }));
+    props.add(new NumberProp("Swing %", 50, 75, [&st] { return st.doc().settings.swingPercent; },
+                             [set](double v) { set("Swing", [v](ProjectDocument& d) { d.settings.swingPercent = static_cast<int>(v); }); }));
+    props.add(new ChoiceProp("Swing on", {"8ths", "16ths"}, [&st] { return static_cast<int>(st.doc().settings.swingGrid); },
+                             [set](int i) { set("Swing grid", [i](ProjectDocument& d) { d.settings.swingGrid = static_cast<SwingGrid>(i); }); }));
     props.add(new BoolProp("Lock seed", [&st] { return st.doc().settings.seedMode == SeedMode::Fixed; },
                            [set](bool v) { set("Seed mode", [v](ProjectDocument& d) { d.settings.seedMode = v ? SeedMode::Fixed : SeedMode::NewEachPlay; }); }));
     props.add(new NumberProp("Traveler cap", 1, 256, [&st] { return st.doc().settings.travelerCap; },

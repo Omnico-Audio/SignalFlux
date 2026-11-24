@@ -38,6 +38,7 @@ struct RuntimeStation {
     std::optional<std::uint32_t> terminatorLimit; ///< D13
     ControlChangeSettings controlChange;  ///< D26
     PitchBendSettings pitchBend;          ///< D26
+    HumanizeSettings humanize;            ///< D36
 };
 
 struct RuntimeFlowpoint {

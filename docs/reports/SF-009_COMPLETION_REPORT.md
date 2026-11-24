@@ -42,5 +42,4 @@ Feature coverage: undo/redo with gesture coalescing (tested); Capture to `.mid` 
 
 ## Known limitations (needs hands-on testing)
 - The UI has never been run here (no display). Layout, interaction and performance need checking on macOS and Windows.
-- Swing and humanize (D36) have project fields but no engine support or UI yet.
 - One MIDI output and no MIDI input device picker in the toolbar yet (inputs can be opened through `EngineHost::selectInputs`).

@@ -155,6 +155,7 @@ void Sequencer::play(std::optional<std::uint64_t> seed) {
     std::fill(terminatorCount_.begin(), terminatorCount_.end(), 0u); // D13: reset on Play
     logicDirty_ = true;
     ramps_ = {};
+    pendingCount_ = 0;
     for (auto& ch : ccValue_) ch.fill(0);
     pitchBendValue_.fill(0);
     nextTravelerId_ = 1;
@@ -192,7 +193,8 @@ void Sequencer::requestStop() {
 void Sequencer::performStop() {
     releaseAllNotes();
     silencePendingRepeats();
-    ramps_ = {}; // D26: Stop freezes ramps where they are
+    ramps_ = {};       // D26: Stop freezes ramps where they are
+    pendingCount_ = 0; // delayed notes not yet started are dropped: nothing to release
     emit(makeEvent(EngineEventType::TransportStop, now_));
     stopAt_.reset();
     transport_ = TransportState::Paused;
@@ -208,6 +210,7 @@ void Sequencer::panic() {
     releaseAllNotes();
     silencePendingRepeats();
     ramps_ = {};
+    pendingCount_ = 0;
     pitchBendValue_.fill(0); // the Panic message set recentres Pitch Bend (D14)
     emit(makeEvent(EngineEventType::Panic, now_));
 }
@@ -268,6 +271,7 @@ std::optional<MusicalTick> Sequencer::nextEventTick() const noexcept {
         if (!next || tr.deadline < *next) next = tr.deadline;
     for (const auto& r : ramps_)
         if (r.active && (!next || r.next < *next)) next = r.next;
+    if (pendingCount_ > 0 && (!next || pending_[0].at < *next)) next = pending_[0].at;
     return next;
 }
 
@@ -300,7 +304,8 @@ void Sequencer::processTick(MusicalTick t) {
         off.note = r.note;
         emit(off);
     });
-    stepRamps(t); // low-priority controller updates, after Note Offs
+    stepRamps(t);         // low-priority controller updates, after Note Offs
+    emitPendingNotes(t);  // swung / humanized Note Ons scheduled earlier (D36)
 
     // D21 step 3: arrivals and Repeat triggers in ascending TravelerId order.
     dueScratch_.clear();
@@ -398,32 +403,82 @@ void Sequencer::repeatTrigger(std::size_t index, MusicalTick t) {
     departOrEnd(index, s, t); // D8: departure coincides with the final trigger
 }
 
+/// D36 swing: an event exactly on an off-beat of the swing grid is delayed so
+/// the off-beat lands at swing% of the pair. 50% = straight. Integer ticks.
+MusicalTick Sequencer::swung(MusicalTick t) const noexcept {
+    const auto& st = graph_->settings();
+    if (st.swingPercent <= 50) return t;
+    const std::int64_t grid = st.swingGrid == SwingGrid::Eighths ? kTicksPerQuarter / 2 : kTicksPerQuarter / 4;
+    if (t.value() % (2 * grid) != grid) return t;
+    return t + MusicalTick{grid * (2 * st.swingPercent - 100) / 100};
+}
+
 void Sequencer::emitNotes(StationIndex s, const ResolvedNotes& resolved, TravelerId traveler, MusicalTick t) {
     const RuntimeStation& st = graph_->stations()[s];
-    Velocity velocity = st.note.velocity;
+    int velocity = st.note.velocity.value();
     for (const auto& [id, value] : velocityOverrides_)
-        if (id == st.id) velocity = value; // D15 MIDI modulation
+        if (id == st.id) velocity = value.value(); // D15 MIDI modulation
+
+    // D36 humanize: one draw per trigger, shared by chord tones. No draw when off,
+    // so projects without humanize keep identical random streams.
+    if (st.humanize.velocityRange > 0)
+        velocity = std::clamp(velocity + static_cast<int>(random_.between(s, st.id, RandomPurpose::HumanizeVelocity,
+                                                                           -st.humanize.velocityRange, st.humanize.velocityRange)),
+                              1, 127);
+    MusicalTick at = swung(t);
+    if (st.humanize.maxDelay.value() > 0)
+        at = at + MusicalTick{random_.between(s, st.id, RandomPurpose::HumanizeTiming, 0, st.humanize.maxDelay.value())};
+
     const ScaleContext scale{graph_->settings().root, graph_->settings().scale};
     for (std::size_t i = 0; i < resolved.count; ++i) { // ascending pitch order (D34)
         const MidiNote pitch = transpose_ == 0
             ? resolved.pitches[i]
             : *MidiNote::make(foldToMidiRange(stepInScale(resolved.pitches[i].value(), transpose_, scale)));
-        if (!notes_.add(st.channel, pitch, t + st.note.duration, st.id)) {
-            ++stats_.droppedNotes;
-            auto d = makeEvent(EngineEventType::NoteDropped, t, {}, st.id);
-            d.channel = st.channel;
-            d.note = pitch;
-            emit(d);
+        const auto v = *Velocity::make(velocity);
+        if (at == t || pendingCount_ == kMaxPending) { // overflow policy: play on time
+            startNote(st.id, st.channel, pitch, v, traveler, t, st.note.duration);
             continue;
         }
-        stats_.noteHighWater = std::max(stats_.noteHighWater, notes_.size());
-        if (stationSounding_[s]++ == 0) logicDirty_ = true;
-        auto on = makeEvent(EngineEventType::NoteOn, t, traveler, st.id);
-        on.channel = st.channel;
-        on.note = pitch;
-        on.velocity = velocity;
-        emit(on);
+        // Insert keeping (tick, sequence) order; bounded, no allocation.
+        PendingNote p{at, pendingSequence_++, st.id, st.channel, pitch, v, traveler, st.note.duration};
+        std::size_t k = pendingCount_++;
+        while (k > 0 && pending_[k - 1].at > p.at) {
+            pending_[k] = pending_[k - 1];
+            --k;
+        }
+        pending_[k] = p;
     }
+}
+
+void Sequencer::startNote(StationId station, MidiChannel ch, MidiNote pitch, Velocity v, TravelerId traveler, MusicalTick at,
+                          MusicalTick duration) {
+    if (!notes_.add(ch, pitch, at + duration, station)) {
+        ++stats_.droppedNotes;
+        auto d = makeEvent(EngineEventType::NoteDropped, at, {}, station);
+        d.channel = ch;
+        d.note = pitch;
+        emit(d);
+        return;
+    }
+    stats_.noteHighWater = std::max(stats_.noteHighWater, notes_.size());
+    if (const auto s = graph_->stationIndex(station))
+        if (stationSounding_[*s]++ == 0) logicDirty_ = true;
+    auto on = makeEvent(EngineEventType::NoteOn, at, traveler, station);
+    on.channel = ch;
+    on.note = pitch;
+    on.velocity = v;
+    emit(on);
+}
+
+void Sequencer::emitPendingNotes(MusicalTick t) {
+    std::size_t due = 0;
+    while (due < pendingCount_ && pending_[due].at <= t) ++due;
+    for (std::size_t i = 0; i < due; ++i) {
+        const auto& p = pending_[i];
+        startNote(p.station, p.channel, p.pitch, p.velocity, p.traveler, t, p.duration);
+    }
+    for (std::size_t i = due; i < pendingCount_; ++i) pending_[i - due] = pending_[i];
+    pendingCount_ -= due;
 }
 
 void Sequencer::endTraveler(std::size_t index, StationId at, EndReason why, MusicalTick t) {
