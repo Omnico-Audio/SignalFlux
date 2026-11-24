@@ -3,7 +3,7 @@
 
 #include "engine/NoteResolution.h"
 
-#include <algorithm>
+#include <utility>
 
 namespace signalflux::engine {
 
@@ -137,9 +137,13 @@ ResolvedNotes resolveNotes(const NoteSettings& n, ScaleContext scale, const Note
         if (count == tones.size()) break;
         tones[count++] = foldToMidiRange(offset == 0 ? rootNote.value() : stepInScale(rootNote.value(), offset, scale));
     }
-    std::sort(tones.begin(), tones.begin() + static_cast<std::ptrdiff_t>(count));
-    const auto last = std::unique(tones.begin(), tones.begin() + static_cast<std::ptrdiff_t>(count));
-    for (auto it = tones.begin(); it != last; ++it) out.pitches[out.count++] = *MidiNote::make(*it);
+    // Insertion sort + dedupe on at most 6 values. (std::sort here trips a GCC
+    // -O3 -Warray-bounds false positive on small std::arrays.)
+    for (std::size_t i = 1; i < count; ++i)
+        for (std::size_t j = i; j > 0 && tones[j - 1] > tones[j]; --j) std::swap(tones[j - 1], tones[j]);
+    for (std::size_t i = 0; i < count; ++i)
+        if (out.count == 0 || out.pitches[out.count - 1].value() != tones[i])
+            out.pitches[out.count++] = *MidiNote::make(tones[i]);
     return out;
 }
 
