@@ -17,9 +17,9 @@ void ActiveNoteRegistry::reset(std::size_t capacity) {
     nextSequence_ = 0;
 }
 
-bool ActiveNoteRegistry::add(MidiChannel channel, MidiNote note, MusicalTick offTick) noexcept {
+bool ActiveNoteRegistry::add(MidiChannel channel, MidiNote note, MusicalTick offTick, StationId station) noexcept {
     if (entries_.size() >= capacity_) return false;
-    entries_.push_back(Entry{channel, note, offTick, nextSequence_++}); // within reserved capacity
+    entries_.push_back(Entry{channel, note, offTick, nextSequence_++, station}); // within reserved capacity
     ++counts_[slot(channel, note)];
     return true;
 }

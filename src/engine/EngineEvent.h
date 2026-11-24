@@ -31,7 +31,7 @@ enum class EngineEventType : std::uint8_t {
     NoteDropped,       ///< Not sent: active-note cap reached (D23).
 };
 
-enum class EndReason : std::uint8_t { None, NoRoute, RouteDeleted, StationDeleted };
+enum class EndReason : std::uint8_t { None, NoRoute, RouteDeleted, StationDeleted, Terminated };
 
 struct EngineEvent {
     MusicalTick tick;

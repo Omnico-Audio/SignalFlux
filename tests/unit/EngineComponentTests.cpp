@@ -51,11 +51,12 @@ TEST_CASE("Overlapping same-pitch notes are reference counted (D22)", "[engine][
     CHECK(reg.soundingCount(ch1, c4) == 2);
 
     int released = 0;
-    reg.releaseDue(MusicalTick{960}, [&](const ActiveNoteRegistry::Release&) { ++released; });
+    reg.releaseDue(MusicalTick{960}, [&](const ActiveNoteRegistry::Release& r) { released += r.sendNoteOff ? 1 : 0; });
     CHECK(released == 0); // first instance ended, but the note is still sounding
     CHECK(reg.soundingCount(ch1, c4) == 1);
 
     reg.releaseDue(MusicalTick{1440}, [&](const ActiveNoteRegistry::Release& r) {
+        REQUIRE(r.sendNoteOff);
         ++released;
         CHECK(r.channel == ch1);
         CHECK(r.note == c4);

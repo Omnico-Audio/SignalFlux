@@ -19,6 +19,8 @@ add_library(signalflux_core STATIC
     engine/EngineEvent.cpp
     engine/ActiveNoteRegistry.h
     engine/ActiveNoteRegistry.cpp
+    engine/LogicEngine.h
+    engine/LogicEngine.cpp
     engine/Sequencer.h
     engine/Sequencer.cpp
     engine/EventLog.h

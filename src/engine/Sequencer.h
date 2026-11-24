@@ -14,10 +14,15 @@
 //   (4. logic re-evaluation: SF-006)
 //
 // A Traveler is either travelling a leg or dwelling at a Station while its
-// Repeat group plays (D8). Entering a Station runs, in order: (SF-006:
-// Terminator), silence decision (manual mute, gates, probability: evaluated
-// once per arrival, D7), resolution, Note Ons, then either the Repeat group or
-// departure. Mute and probability change sound only, never timing or routing (P2).
+// Repeat group plays (D8). Entering a Station runs, in order: Terminator (D13:
+// may end the Traveler), silence decision (manual mute, gate enable, then
+// probability, evaluated once per arrival, D7), resolution, Note Ons, then
+// either the Repeat group or departure. Mute, gates and probability change
+// sound only, never timing or routing (P2).
+//
+// Logic (D12) is evaluated at the end of a processed tick when its inputs
+// changed (D21 step 4) and immediately on external inputs (Switch, MIDI), so
+// it keeps running while stopped.
 //
 // Thread ownership: one Sequencer belongs to one thread (the engine thread).
 // No method is thread-safe. After play(), processUntil() performs no
@@ -27,6 +32,7 @@
 
 #include "engine/ActiveNoteRegistry.h"
 #include "engine/EngineEvent.h"
+#include "engine/LogicEngine.h"
 #include "engine/NoteResolution.h"
 #include "engine/Random.h"
 #include "engine/RuntimeGraph.h"
@@ -58,10 +64,24 @@ struct EngineStats {
 
 /// Read-only copy of engine state for the UI. The UI interpolates sprite
 /// positions from (legStart, deadline, now); it never feeds anything back.
+struct GateView {
+    GateId id;
+    bool output = false;
+};
+
+struct StationRuntimeView {
+    StationId id;
+    bool enabled = true;              ///< False when its driving gate is false (D12).
+    bool active = false;              ///< A note from this Station is sounding.
+    std::uint32_t terminatorCount = 0; ///< Arrivals counted since Play (D13).
+};
+
 struct EngineSnapshot {
     MusicalTick now;
     TransportState transport = TransportState::Stopped;
     std::vector<TravelerView> travelers;
+    std::vector<GateView> gates;           ///< Ascending GateId.
+    std::vector<StationRuntimeView> stations; ///< Document order.
     EngineStats stats;
 };
 
@@ -85,6 +105,12 @@ public:
     void continuePlayback();
     /// Release every sounding note now. Transport state is unchanged.
     void panic();
+
+    // External logic inputs (D12). Applied at now(), with one logic step, in
+    // any transport state. Channels are 1-16 as MidiChannel.
+    void setSwitch(SwitchId id, bool on);
+    void setMidiNoteHeld(MidiChannel channel, MidiNote note, bool held);
+    void setMidiControl(MidiChannel channel, CcNumber controller, CcValue value);
 
     /// Processes every event with tick < horizon, then sets now() = horizon.
     /// Does nothing unless playing. `horizon` is on the engine's own tick
@@ -131,6 +157,8 @@ private:
     void performStop();
     void releaseAllNotes();
     void silencePendingRepeats() noexcept;
+    bool runLogicStep() noexcept;
+    void noteReleased(StationId station) noexcept;
     [[nodiscard]] std::optional<MusicalTick> nextEventTick() const noexcept;
     [[nodiscard]] std::size_t travelerCap() const noexcept;
     [[nodiscard]] TravelerId newTravelerId() noexcept { return TravelerId{nextTravelerId_++}; }
@@ -147,6 +175,12 @@ private:
     std::vector<TravelerId> dueScratch_;       // arrivals at the current tick
     ActiveNoteRegistry notes_;
     RandomStreams random_;
+    LogicEngine logic_;
+    MidiInputState midiIn_;
+    std::vector<std::int32_t> stationSounding_;     // per Station index: sounding instances
+    std::vector<std::uint8_t> stationActive_;       // scratch for logic steps
+    std::vector<std::uint32_t> terminatorCount_;    // per Station index (D13)
+    bool logicDirty_ = true;
     std::uint32_t nextTravelerId_ = 1;
     EngineStats stats_;
 };
