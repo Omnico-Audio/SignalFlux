@@ -55,6 +55,7 @@ std::string_view toString(IssueCode code) noexcept {
         case IssueCode::PassOverridesPassThrough:          return "PassOverridesPassThrough";
         case IssueCode::PassThroughIgnoredOutsideRelative: return "PassThroughIgnoredOutsideRelative";
         case IssueCode::ForceScaleIgnoredOutsideAbsolute:  return "ForceScaleIgnoredOutsideAbsolute";
+        case IssueCode::GateUnconnected:                   return "GateUnconnected";
     }
     return "Unknown";
 }
@@ -230,9 +231,12 @@ private:
             checkId(g.id, gateIds_, member(gp, "id"));
 
             const auto n = g.inputs.size();
-            if (g.type == GateType::Not ? n != 1 : (n < 1 || n > limits::kMaxGateInputs))
+            if (n == 0)
+                warning(IssueCode::GateUnconnected, member(gp, "inputs"),
+                        "gate has no inputs: its output stays on, so it mutes nothing");
+            else if (g.type == GateType::Not ? n != 1 : n > limits::kMaxGateInputs)
                 error(IssueCode::GateArity, member(gp, "inputs"),
-                      g.type == GateType::Not ? "NOT takes exactly one input" : "gates take 1–16 inputs");
+                      g.type == GateType::Not ? "NOT takes exactly one input" : "gates take at most 16 inputs");
 
             for (std::size_t k = 0; k < g.inputs.size(); ++k) {
                 const auto ip = indexed(gp, "inputs", k);

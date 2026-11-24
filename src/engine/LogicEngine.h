@@ -6,6 +6,7 @@
 // enable state. It never touches Travelers or routing.
 //
 // Evaluation model (D12):
+//  - A gate with no inputs outputs true (it mutes nothing) until it is wired.
 //  - One evaluation step computes every gate. Acyclic parts settle within the
 //    step (topological order). Each cycle is broken at a deterministic feedback
 //    edge: the first back-edge found by depth-first search from the lowest

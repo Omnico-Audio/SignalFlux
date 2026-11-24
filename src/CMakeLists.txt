@@ -9,6 +9,9 @@ add_library(signalflux_core STATIC
     domain/Validation.cpp
     domain/Examples.h
     domain/Examples.cpp
+    domain/Editing.h
+    domain/Editing.cpp
+    domain/RouteGeometry.h
     engine/LegTiming.h
     engine/Random.h
     engine/NoteResolution.h
@@ -32,6 +35,8 @@ add_library(signalflux_core STATIC
     midi/SpscQueue.h
     midi/MidiInputRouter.h
     midi/MidiInputRouter.cpp
+    midi/MidiFileWriter.h
+    midi/MidiFileWriter.cpp
 )
 add_library(SignalFlux::core ALIAS signalflux_core)
 target_include_directories(signalflux_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

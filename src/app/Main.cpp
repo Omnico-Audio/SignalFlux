@@ -12,13 +12,20 @@ public:
     explicit MainWindow(const juce::String& name)
         : DocumentWindow(name, juce::Colour(0xff15171c), DocumentWindow::allButtons) {
         setUsingNativeTitleBar(true);
-        setContentOwned(new MainComponent(), true);
+        auto* content = new MainComponent();
+        content->onTitleChanged = [this](const juce::String& t) { setName(t); };
+        setContentOwned(content, true);
         setResizable(true, true);
         centreWithSize(getWidth(), getHeight());
         setVisible(true);
     }
 
     void closeButtonPressed() override { juce::JUCEApplication::getInstance()->systemRequestedQuit(); }
+
+    void requestQuit(std::function<void()> quit) {
+        if (auto* c = dynamic_cast<MainComponent*>(getContentComponent())) c->requestQuit(std::move(quit));
+        else quit();
+    }
 
 private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainWindow)
@@ -32,7 +39,10 @@ public:
 
     void initialise(const juce::String&) override { window_ = std::make_unique<MainWindow>(getApplicationName()); }
     void shutdown() override { window_.reset(); }
-    void systemRequestedQuit() override { quit(); }
+    void systemRequestedQuit() override {
+        if (window_) window_->requestQuit([] { juce::JUCEApplication::getInstance()->quit(); });
+        else quit();
+    }
 
 private:
     std::unique_ptr<MainWindow> window_;

@@ -11,11 +11,16 @@
 //   signalflux-render --example NAME [--beats N]
 //   signalflux-render --project FILE [--beats N]
 //   signalflux-render --export-examples DIR
+//   signalflux-render --export-midi FILE.sflux OUT.mid [--beats N]   (D28 Render)
 
 #include "domain/Examples.h"
 #include "domain/Validation.h"
 #include "engine/EventLog.h"
 #include "persistence/ProjectSerializer.h"
+#include "midi/MidiFileWriter.h"
+#include "engine/Sequencer.h"
+
+#include <fstream>
 
 #include <charconv>
 #include <filesystem>
@@ -34,7 +39,8 @@ int printUsage() {
     std::fputs("usage: signalflux-render --version | --self-check | --list\n"
                "       signalflux-render --example NAME [--beats N]\n"
                "       signalflux-render --project FILE [--beats N]\n"
-               "       signalflux-render --export-examples DIR\n",
+               "       signalflux-render --export-examples DIR\n"
+               "       signalflux-render --export-midi FILE.sflux OUT.mid [--beats N]\n",
                stderr);
     return 2;
 }
@@ -81,6 +87,26 @@ int exportExamples(const char* dir) {
     return 0;
 }
 
+int exportMidi(const char* project, const char* outPath, std::int64_t beats) {
+    const auto loaded = signalflux::persistence::loadFromFile(project);
+    if (!loaded.ok()) {
+        for (const auto& e : loaded.errors) std::fprintf(stderr, "error: %s\n", e.c_str());
+        return 1;
+    }
+    const auto& doc = *loaded.document;
+    signalflux::engine::EventLog log;
+    signalflux::engine::Sequencer seq{log};
+    (void)seq.setDocument(doc);
+    seq.play();
+    seq.processUntil(signalflux::MusicalTick{beats * signalflux::kTicksPerQuarter});
+    seq.requestStop();
+    if (seq.pendingStop()) seq.processUntil(*seq.pendingStop());
+    const auto bytes = signalflux::midi::writeMidiFile(log.events(), {doc.metadata.name, seq.currentSeed(), doc.settings.tempo});
+    std::ofstream out(outPath, std::ios::binary);
+    out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    return out ? 0 : 1;
+}
+
 int renderDocument(const signalflux::ProjectDocument& doc, std::int64_t beats) {
     const auto log = signalflux::engine::renderCanonicalLog(doc, signalflux::MusicalTick{beats * signalflux::kTicksPerQuarter});
     if (log.empty()) {
@@ -111,6 +137,15 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (cmd == "--export-examples" && argc == 3) return exportExamples(argv[2]);
+    if (cmd == "--export-midi" && (argc == 4 || argc == 6)) {
+        std::int64_t beats = 64;
+        if (argc == 6) {
+            const std::string_view value{argv[5]};
+            const auto [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), beats);
+            if (std::string_view(argv[4]) != "--beats" || ec != std::errc{} || beats < 1 || beats > 100000) return printUsage();
+        }
+        return exportMidi(argv[2], argv[3], beats);
+    }
     if ((cmd == "--example" || cmd == "--project") && (argc == 3 || argc == 5)) {
         std::int64_t beats = 16;
         if (argc == 5) {

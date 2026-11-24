@@ -257,9 +257,11 @@ TEST_CASE("Logic gates (D12)", "[domain][validation]") {
         plot.gates[0].type = GateType::Not;
         CHECK(validateProject(doc).has(IssueCode::GateArity));
     }
-    SECTION("gates need at least one input") {
+    SECTION("a gate with no inputs is a warning, not an error") {
         plot.gates[0].inputs.clear();
-        CHECK(validateProject(doc).has(IssueCode::GateArity));
+        const auto r = validateProject(doc);
+        CHECK(r.ok());
+        CHECK(r.has(IssueCode::GateUnconnected));
     }
     SECTION("unknown references") {
         plot.gates[0].inputs.push_back(SwitchInput{SwitchId{9}});
