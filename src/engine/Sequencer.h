@@ -13,11 +13,11 @@
 //   3. arrivals, in ascending TravelerId order
 //   (4. logic re-evaluation: SF-006)
 //
-// Scope in SF-003: Sequential and Instant branching, absolute notes, manual
-// mute, Traveler and note caps, in-flight edits, transport. Random branching
-// behaves as Sequential until SF-005; Relative/Random Value/Pass/chords arrive
-// in SF-004; probability and repeat in SF-005; gates and Terminators in SF-006;
-// CC and Pitch Bend Stations in SF-007.
+// Scope so far: Sequential and Instant branching, full note resolution
+// (SF-004), manual mute, Traveler and note caps, in-flight edits, transport.
+// Random branching behaves as Sequential until SF-005; probability and repeat
+// arrive in SF-005; gates and Terminators in SF-006; CC and Pitch Bend
+// Stations in SF-007.
 //
 // Thread ownership: one Sequencer belongs to one thread (the engine thread).
 // No method is thread-safe. After play(), processUntil() performs no
@@ -27,6 +27,8 @@
 
 #include "engine/ActiveNoteRegistry.h"
 #include "engine/EngineEvent.h"
+#include "engine/NoteResolution.h"
+#include "engine/Random.h"
 #include "engine/RuntimeGraph.h"
 
 #include <cstdint>
@@ -73,7 +75,9 @@ public:
     ValidationReport setDocument(const ProjectDocument& doc);
 
     /// Play: reset all runtime state, tick 0, spawn one Starter per Start Station.
-    void play();
+    /// `seed` overrides the project's random seed (D10: seedMode NewEachPlay is
+    /// implemented by the app passing a fresh seed; tests pass fixed ones).
+    void play(std::optional<std::uint64_t> seed = std::nullopt);
     /// Stop at the next MIDI Clock boundary (D14): every 40 ticks.
     void requestStop();
     /// Resume a stopped engine from where it stopped (D14).
@@ -90,6 +94,8 @@ public:
     [[nodiscard]] TransportState transport() const noexcept { return transport_; }
     [[nodiscard]] std::optional<MusicalTick> pendingStop() const noexcept { return stopAt_; }
     [[nodiscard]] const EngineStats& stats() const noexcept { return stats_; }
+    /// Seed used by the current (or last) Play (D29 seed history).
+    [[nodiscard]] std::uint64_t currentSeed() const noexcept { return random_.seed(); }
     [[nodiscard]] EngineSnapshot snapshot() const;
 
 private:
@@ -98,15 +104,16 @@ private:
         FlowpointIndex flowpoint = 0;
         MusicalTick legStart;
         MusicalTick deadline;
+        NoteContext context;                   ///< Carried signal data (D19, D39).
     };
 
     void emit(EngineEvent e) noexcept { sink_.onEngineEvent(e); }
     void processTick(MusicalTick t);
     void arrive(TravelerId id, MusicalTick t);
-    void trigger(StationIndex s, TravelerId traveler, MusicalTick t);
+    [[nodiscard]] NoteContext trigger(StationIndex s, TravelerId traveler, MusicalTick t, const NoteContext& incoming);
     void chooseRoutes(StationIndex s);
     void depart(Traveler& traveler, StationIndex from, FlowpointIndex route, MusicalTick t);
-    void spawnChildren(StationIndex from, std::size_t firstRoute, MusicalTick t);
+    void spawnChildren(StationIndex from, std::size_t parentIndex, std::size_t firstRoute, MusicalTick t);
     void performStop();
     void releaseAllNotes();
     [[nodiscard]] std::optional<MusicalTick> nextEventTick() const noexcept;
@@ -124,6 +131,7 @@ private:
     std::vector<FlowpointIndex> routeScratch_; // chosen routes for the current departure
     std::vector<TravelerId> dueScratch_;       // arrivals at the current tick
     ActiveNoteRegistry notes_;
+    RandomStreams random_;
     std::uint32_t nextTravelerId_ = 1;
     EngineStats stats_;
 };

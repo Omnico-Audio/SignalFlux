@@ -9,6 +9,7 @@ add_executable(signalflux_tests
     unit/EngineComponentTests.cpp
     unit/SequencerTests.cpp
     unit/GoldenLogTests.cpp
+    unit/NoteResolutionTests.cpp
 )
 target_link_libraries(signalflux_tests PRIVATE SignalFlux::core Catch2::Catch2WithMain)
 signalflux_apply_strict_warnings(signalflux_tests)
@@ -23,7 +24,7 @@ catch_discover_tests(signalflux_tests)
 if(SIGNALFLUX_BUILD_RENDER)
     add_test(NAME render.version COMMAND signalflux-render --version)
     add_test(NAME render.self_check COMMAND signalflux-render --self-check)
-    foreach(example first-loop sequential-hub instant-bloom polyrhythm)
+    foreach(example first-loop sequential-hub instant-bloom polyrhythm wanderer)
         add_test(NAME render.golden.${example}
             COMMAND ${CMAKE_COMMAND}
                 -DRENDER=$<TARGET_FILE:signalflux-render>
