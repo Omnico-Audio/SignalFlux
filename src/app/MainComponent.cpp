@@ -26,8 +26,14 @@ MainComponent::MainComponent() {
     continueButton_.onClick = [this] { host_.continuePlayback(); };
     panicButton_.onClick = [this] { host_.panic(); };
 
+    // Optional synth (SF-008). If no audio device opens, MIDI is unaffected.
+    if (const auto err = synth_.open(); err.isEmpty()) host_.setSynthQueue(&synth_.queue());
+    else synthToggle_.setButtonText("Monitor synth (unavailable: " + err + ")");
+    synthToggle_.setEnabled(synth_.available());
+    synthToggle_.onClick = [this] { synth_.setEnabled(synthToggle_.getToggleState()); };
+
     for (auto* c : std::initializer_list<juce::Component*>{&exampleBox_, &outputBox_, &playButton_, &stopButton_,
-                                                           &continueButton_, &panicButton_})
+                                                           &continueButton_, &panicButton_, &synthToggle_})
         addAndMakeVisible(c);
 
     refreshOutputs();
@@ -37,7 +43,10 @@ MainComponent::MainComponent() {
     startTimerHz(30);
 }
 
-MainComponent::~MainComponent() { stopTimer(); }
+MainComponent::~MainComponent() {
+    stopTimer();
+    host_.setSynthQueue(nullptr);
+}
 
 void MainComponent::refreshOutputs() {
     outputs_ = EngineHost::availableOutputs();
@@ -81,6 +90,8 @@ void MainComponent::resized() {
         b->setBounds(row.removeFromLeft(110));
         row.removeFromLeft(8);
     }
+    area.removeFromTop(12);
+    synthToggle_.setBounds(area.removeFromTop(28).removeFromLeft(420));
 }
 
 void MainComponent::paint(juce::Graphics& g) {

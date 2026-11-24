@@ -12,7 +12,9 @@ target_sources(SignalFlux PRIVATE
     MainComponent.h
     MainComponent.cpp
     EngineHost.h
-    EngineHost.cpp)
+    EngineHost.cpp
+    SynthOutput.h
+    SynthOutput.cpp)
 
 target_compile_definitions(SignalFlux PRIVATE
     JUCE_WEB_BROWSER=0
@@ -25,6 +27,7 @@ target_link_libraries(SignalFlux
     PRIVATE
         SignalFlux::core
         SignalFlux::persistence
+        SignalFlux::audio
         juce::juce_gui_basics
         juce::juce_audio_devices
     PUBLIC

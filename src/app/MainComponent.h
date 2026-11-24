@@ -27,7 +27,9 @@ private:
     void loadExample(int index);
     void refreshOutputs();
 
+    SynthOutput synth_;
     EngineHost host_;
+    juce::ToggleButton synthToggle_{"Monitor synth"};
     juce::ComboBox exampleBox_, outputBox_;
     juce::TextButton playButton_{"Play"}, stopButton_{"Stop"}, continueButton_{"Continue"}, panicButton_{"Panic"};
     juce::Array<juce::MidiDeviceInfo> outputs_;
