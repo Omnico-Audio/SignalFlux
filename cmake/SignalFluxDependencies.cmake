@@ -32,7 +32,11 @@ if(SIGNALFLUX_BUILD_APP)
         FetchContent_Declare(AbletonLink
             GIT_REPOSITORY https://github.com/Ableton/link.git
             GIT_TAG        ${SIGNALFLUX_LINK_COMMIT}
-            GIT_SUBMODULES_RECURSE ON)
+            GIT_SUBMODULES_RECURSE ON
+            # Populate only: Link's own CMake project adds examples and tests (LinkHut,
+            # LinkUtilTest, abl_link) that we must not build. AbletonLinkConfig.cmake
+            # below defines the Ableton::Link interface target we actually use.
+            SOURCE_SUBDIR do-not-add-subdirectory)
         FetchContent_MakeAvailable(AbletonLink)
         include("${abletonlink_SOURCE_DIR}/AbletonLinkConfig.cmake")
     endif()

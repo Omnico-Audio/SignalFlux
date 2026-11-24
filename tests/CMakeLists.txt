@@ -1,4 +1,6 @@
 # Unit tests: link the core only, never JUCE or GUI (SF-001 acceptance).
+# Test and SECTION names must be ASCII: CTest passes them to the test binary on the
+# command line, and the Windows console code page mangles non-ASCII characters.
 add_executable(signalflux_tests
     unit/TypesTests.cpp
     unit/ScaleTests.cpp

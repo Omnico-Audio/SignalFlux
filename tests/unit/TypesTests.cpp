@@ -8,7 +8,7 @@
 
 using namespace signalflux;
 
-TEST_CASE("MidiChannel accepts exactly 1–16", "[domain][types]") {
+TEST_CASE("MidiChannel accepts exactly 1-16", "[domain][types]") {
     CHECK_FALSE(MidiChannel::make(0));
     CHECK(MidiChannel::make(1)->value() == 1);
     CHECK(MidiChannel::make(16)->value() == 16);
@@ -18,7 +18,7 @@ TEST_CASE("MidiChannel accepts exactly 1–16", "[domain][types]") {
     STATIC_CHECK(MidiChannel::of<10>().value() == 10);
 }
 
-TEST_CASE("MidiNote accepts exactly 0–127", "[domain][types]") {
+TEST_CASE("MidiNote accepts exactly 0-127", "[domain][types]") {
     CHECK(MidiNote::make(0)->value() == 0);
     CHECK(MidiNote::make(127)->value() == 127);
     CHECK_FALSE(MidiNote::make(128));
@@ -34,7 +34,7 @@ TEST_CASE("Velocity excludes 0 because 0 means Note Off on the wire", "[domain][
     CHECK(Velocity{}.value() == 100);
 }
 
-TEST_CASE("ProbabilityPercent accepts exactly 0–100", "[domain][types]") {
+TEST_CASE("ProbabilityPercent accepts exactly 0-100", "[domain][types]") {
     CHECK(ProbabilityPercent::make(0)->value() == 0);
     CHECK(ProbabilityPercent::make(100)->value() == 100);
     CHECK_FALSE(ProbabilityPercent::make(101));
