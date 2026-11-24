@@ -162,6 +162,10 @@ private:
     void departOrEnd(std::size_t index, StationIndex s, MusicalTick t);
     [[nodiscard]] bool isSilent(StationIndex s) noexcept;
     void emitNotes(StationIndex s, const ResolvedNotes& notes, TravelerId traveler, MusicalTick t);
+    void startNote(StationId station, MidiChannel ch, MidiNote pitch, Velocity v, TravelerId traveler, MusicalTick at,
+                   MusicalTick duration);
+    void emitPendingNotes(MusicalTick t);
+    [[nodiscard]] MusicalTick swung(MusicalTick t) const noexcept;
     void chooseRoutes(StationIndex s);
     void depart(Traveler& traveler, StationIndex from, FlowpointIndex route, MusicalTick t);
     void spawnChildren(StationIndex from, std::size_t parentIndex, std::size_t firstRoute, MusicalTick t);
@@ -212,6 +216,22 @@ private:
     std::array<Ramp, kMaxRamps> ramps_{};
     std::array<std::array<std::int16_t, 128>, 16> ccValue_{};  // last value sent per channel/controller
     std::array<std::int16_t, 16> pitchBendValue_{};            // last Pitch Bend per channel (0 = centre)
+
+    // Delayed Note Ons (D36 swing and humanize): bounded, sorted by (tick, sequence).
+    struct PendingNote {
+        MusicalTick at;
+        std::uint64_t sequence = 0;
+        StationId station;
+        MidiChannel channel;
+        MidiNote pitch;
+        Velocity velocity;
+        TravelerId traveler;
+        MusicalTick duration;
+    };
+    static constexpr std::size_t kMaxPending = 512;
+    std::array<PendingNote, kMaxPending> pending_{};
+    std::size_t pendingCount_ = 0;
+    std::uint64_t pendingSequence_ = 0;
 
     std::int32_t transpose_ = 0;
     std::vector<std::pair<StationId, Velocity>> velocityOverrides_;

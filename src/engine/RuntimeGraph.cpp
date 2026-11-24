@@ -48,6 +48,7 @@ std::optional<RuntimeGraph> RuntimeGraph::compile(const ProjectDocument& doc, Va
         rs.terminatorLimit = s.terminatorLimit;
         rs.controlChange = s.controlChange;
         rs.pitchBend = s.pitchBend;
+        rs.humanize = s.humanize;
         g.stations_.push_back(std::move(rs));
         g.stationLookup_.emplace_back(s.id.value(), static_cast<StationIndex>(i));
     }

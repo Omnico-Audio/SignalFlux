@@ -16,6 +16,7 @@ add_executable(signalflux_tests
     unit/MidiTests.cpp
     unit/SynthTests.cpp
     unit/EditingTests.cpp
+    unit/SwingHumanizeTests.cpp
 )
 find_package(Threads REQUIRED)
 target_link_libraries(signalflux_tests PRIVATE SignalFlux::core SignalFlux::persistence SignalFlux::audio Catch2::Catch2WithMain Threads::Threads)
